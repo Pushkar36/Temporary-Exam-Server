@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CI/CD Pipeline — ExamCloud</title>
+  <link rel="stylesheet" href="css/global.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+  <style>
+    /* ── PIPELINE PAGE SPECIFIC ── */
+    .build-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(16,185,129,0.12);
+      border: 1px solid rgba(16,185,129,0.35);
+      color: var(--green);
+      font-size: var(--text-xs);
+      font-weight: 700;
+      padding: 4px 12px;
+      border-radius: var(--radius-full);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .build-badge.running {
+      background: rgba(0,212,255,0.12);
+      border-color: rgba(0,212,255,0.35);
+      color: var(--cyan);
+    }
+    .build-badge.failed {
+      background: rgba(239,68,68,0.12);
+      border-color: rgba(239,68,68,0.35);
+      color: var(--red);
+    }
+    .build-badge.pending {
+      background: rgba(245,158,11,0.12);
+      border-color: rgba(245,158,11,0.35);
+      color: var(--yellow);
+    }
+    .build-badge .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .build-badge.running .dot { animation: pulse 1s infinite; }
+
+    /* ── PIPELINE HEADER CARD ── */
+    .pipeline-header-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      backdrop-filter: blur(20px);
+      overflow: hidden;
+      position: relative;
+    }
+    .pipeline-header-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--cyan), var(--purple), var(--green));
+    }
+    .pipeline-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0;
+    }
+    .pipeline-meta-item {
+      padding: var(--space-5) var(--space-6);
+      border-right: 1px solid var(--border);
+    }
+    .pipeline-meta-item:last-child { border-right: none; }
+    .pipeline-meta-label {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .pipeline-meta-value {
+      font-size: var(--text-sm);
+      font-weight: 600;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+    }
+
+    /* ── VISUAL PIPELINE FLOW ── */
+    .pipeline-flow-container {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-6);
+      overflow-x: auto;
+    }
+    .pipeline-flow {
+      display: flex;
+      align-items: center;
+      min-width: 900px;
+      gap: 0;
+    }
+    .stage-node {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-2);
+      cursor: pointer;
+      transition: var(--transition-base);
+      flex-shrink: 0;
+      width: 108px;
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    .stage-node.visible {
+      opacity: 1;
+      transform: translateY(0);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+    }
+    .stage-node:hover .stage-box { transform: translateY(-3px); }
+    .stage-box {
+      width: 96px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: var(--space-3) var(--space-2);
+      text-align: center;
+      transition: var(--transition-base);
+      position: relative;
+      overflow: hidden;
+    }
+    .stage-box::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+    }
+    .stage-box.success { border-color: rgba(16,185,129,0.5); background: rgba(16,185,129,0.07); }
+    .stage-box.success::before { background: var(--green); }
+    .stage-box.running { border-color: rgba(0,212,255,0.5); background: rgba(0,212,255,0.07); box-shadow: 0 0 20px rgba(0,212,255,0.15); animation: glowPulse 2s ease-in-out infinite; }
+    .stage-box.running::before { background: linear-gradient(90deg, var(--cyan), var(--purple)); }
+    .stage-box.pending { border-color: var(--border); opacity: 0.55; }
+    .stage-box.pending::before { background: var(--text-muted); }
+    .stage-box.failed { border-color: rgba(239,68,68,0.5); background: rgba(239,68,68,0.07); }
+    .stage-box.failed::before { background: var(--red); }
+
+    .stage-icon-wrap {
+      font-size: 20px;
+      margin-bottom: 4px;
+    }
+    .stage-name {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-primary);
+      line-height: 1.3;
+    }
+    .stage-status-text {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-top: 2px;
+    }
+    .stage-status-text.success { color: var(--green); }
+    .stage-status-text.running { color: var(--cyan); }
+    .stage-status-text.pending { color: var(--text-muted); }
+    .stage-status-text.failed { color: var(--red); }
+    .stage-duration {
+      font-size: 9px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      margin-top: 2px;
+    }
+    .stage-extra {
+      font-size: 8px;
+      color: var(--cyan);
+      margin-top: 2px;
+    }
+    .stage-spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(0,212,255,0.2);
+      border-top-color: var(--cyan);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 2px auto 0;
+    }
+
+    /* ── PIPELINE ARROW ── */
+    .pipeline-arrow {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 24px;
+      position: relative;
+      height: 2px;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+    .pipeline-arrow.visible { opacity: 1; }
+    .pipeline-arrow-line {
+      flex: 1;
+      height: 2px;
+      background: repeating-linear-gradient(
+        90deg,
+        var(--cyan) 0px,
+        var(--cyan) 6px,
+        transparent 6px,
+        transparent 12px
+      );
+      background-size: 12px 2px;
+      animation: flowDash 0.8s linear infinite;
+    }
+    .pipeline-arrow.pending .pipeline-arrow-line {
+      background: repeating-linear-gradient(
+        90deg,
+        var(--border) 0px,
+        var(--border) 6px,
+        transparent 6px,
+        transparent 12px
+      );
+      animation: none;
+    }
+    .pipeline-arrow-head {
+      width: 0;
+      height: 0;
+      border-top: 5px solid transparent;
+      border-bottom: 5px solid transparent;
+      border-left: 7px solid var(--cyan);
+      flex-shrink: 0;
+    }
+    .pipeline-arrow.pending .pipeline-arrow-head { border-left-color: var(--text-muted); }
+
+    @keyframes flowDash {
+      from { background-position: 0 0; }
+      to { background-position: 12px 0; }
+    }
+
+    /* ── STAGE LOGS PANEL ── */
+    .stage-logs-panel {
+      display: none;
+      margin-top: var(--space-4);
+      animation: slideUp 0.3s ease;
+    }
+    .stage-logs-panel.open { display: block; }
+
+    /* ── BUILD HISTORY TABLE ── */
+    .history-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      backdrop-filter: blur(20px);
+    }
+
+    /* ── TRIGGER CARD ── */
+    .trigger-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-5);
+      backdrop-filter: blur(20px);
+    }
+    .trigger-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-3) var(--space-4);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      background: var(--bg-secondary);
+      margin-bottom: var(--space-2);
+      transition: var(--transition-fast);
+    }
+    .trigger-item:last-child { margin-bottom: 0; }
+    .trigger-item:hover { border-color: rgba(0,212,255,0.3); background: rgba(0,212,255,0.04); }
+    .trigger-label {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      font-size: var(--text-sm);
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    .trigger-icon {
+      font-size: 16px;
+      width: 28px;
+      text-align: center;
+    }
+
+    /* ── REBUILD ANIMATION ── */
+    .rebuild-flash {
+      animation: rebuildFlash 0.4s ease;
+    }
+    @keyframes rebuildFlash {
+      0% { opacity: 1; }
+      50% { opacity: 0.3; }
+      100% { opacity: 1; }
+    }
+
+    /* ── TOPBAR BUILD INFO ── */
+    .topbar-build-info {
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+    }
+    .build-number {
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      color: var(--text-secondary);
+    }
+    .build-number span { color: var(--cyan); font-weight: 700; }
+
+    /* ── SECTION TITLE ── */
+    .section-title-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--space-4);
+    }
+    .section-title-bar h3 {
+      font-size: var(--text-lg);
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+    .section-title-bar h3 .icon { font-size: 18px; }
+
+    /* ── GRID LAYOUT ── */
+    .bottom-grid {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: var(--space-6);
+    }
+
+    @media (max-width: 1100px) {
+      .pipeline-meta-grid { grid-template-columns: repeat(2, 1fr); }
+      .bottom-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body class="bg-grid">
+
+<!-- ════════════════════════════════════════════
+     SIDEBAR
+════════════════════════════════════════════ -->
+<div class="admin-layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">🐳</div>
+      <div>
+        <div class="logo-text">Exam<span>Cloud</span></div>
+        <div class="logo-sub">Admin Console</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="sidebar-section-label">Main</div>
+      <a href="admin-dashboard.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </a>
+      <a href="create-exam.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        Create Exam
+      </a>
+      <a href="monitor.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+        Containers
+      </a>
+
+      <div class="sidebar-section-label">DevOps</div>
+      <a href="pipeline.html" class="nav-item active">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Pipeline
+      </a>
+      <a href="monitoring.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        Monitoring
+      </a>
+      <a href="logs.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        Logs
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div style="display:flex; align-items:center; gap:var(--space-3);">
+        <div class="avatar avatar-sm" style="background: linear-gradient(135deg,var(--cyan),var(--purple));">A</div>
+        <div>
+          <div style="font-size:var(--text-xs); font-weight:600;">Admin</div>
+          <div style="font-size:10px; color:var(--text-muted);">Super Admin</div>
+        </div>
+        <div class="status-dot online ml-auto"></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ════════════════════════════════════════════
+       MAIN CONTENT
+  ════════════════════════════════════════════ -->
+  <main class="main-content">
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div style="display:flex; align-items:center; gap:var(--space-4);">
+        <div>
+          <div style="font-size:var(--text-lg); font-weight:800; color:var(--text-primary);">CI/CD Pipeline</div>
+          <div style="font-size:var(--text-xs); color:var(--text-muted);">Automated build &amp; deployment flow</div>
+        </div>
+      </div>
+      <div class="topbar-build-info">
+        <div class="build-number">Current Build: <span>#247</span></div>
+        <div class="build-badge" id="topbar-status-badge">
+          <div class="dot"></div>
+          SUCCESS
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="window.location.href='monitoring.html'">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          Monitoring
+        </button>
+      </div>
+    </header>
+
+    <!-- PAGE CONTENT -->
+    <div class="page-content" style="display:flex; flex-direction:column; gap:var(--space-6);">
+
+      <!-- 1. PIPELINE HEADER CARD -->
+      <div class="pipeline-header-card anim-fade-up">
+        <div style="padding: var(--space-5) var(--space-6); display:flex; align-items:center; justify-content:space-between; border-bottom: 1px solid var(--border);">
+          <div style="display:flex; align-items:center; gap:var(--space-4);">
+            <div style="font-size:22px;">🏗️</div>
+            <div>
+              <div style="font-size:var(--text-xl); font-weight:800; color:var(--text-primary);">Build <span style="color:var(--cyan);">#247</span></div>
+              <div style="font-size:var(--text-xs); color:var(--text-muted); margin-top:2px;">Branch: <span style="color:var(--green); font-family:var(--font-mono);">main</span> &nbsp;·&nbsp; Triggered by: <span style="color:var(--text-secondary);">Prof. Sharma</span></div>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:var(--space-3);">
+            <div class="build-badge" id="header-status-badge">
+              <div class="dot"></div>
+              SUCCESS
+            </div>
+            <button class="btn btn-primary btn-sm" id="trigger-btn" onclick="triggerNewBuild()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              Trigger New Build
+            </button>
+            <button class="btn btn-ghost btn-sm">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+              View All Builds
+            </button>
+          </div>
+        </div>
+        <div class="pipeline-meta-grid">
+          <div class="pipeline-meta-item">
+            <div class="pipeline-meta-label">Total Duration</div>
+            <div class="pipeline-meta-value" id="total-duration">4m 32s</div>
+          </div>
+          <div class="pipeline-meta-item">
+            <div class="pipeline-meta-label">Started At</div>
+            <div class="pipeline-meta-value">09:41:23 AM</div>
+          </div>
+          <div class="pipeline-meta-item">
+            <div class="pipeline-meta-label">Commit Hash</div>
+            <div class="pipeline-meta-value" style="color:var(--cyan);">a3f8b2c</div>
+          </div>
+          <div class="pipeline-meta-item">
+            <div class="pipeline-meta-label">Environment</div>
+            <div class="pipeline-meta-value" style="color:var(--purple-light);">Production</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. VISUAL PIPELINE FLOW -->
+      <div>
+        <div class="section-title-bar">
+          <h3><span class="icon">⚡</span> Pipeline Stages</h3>
+          <div style="font-size:var(--text-xs); color:var(--text-muted);">Click any stage to view logs</div>
+        </div>
+        <div class="pipeline-flow-container">
+          <div class="pipeline-flow" id="pipeline-flow">
+            <!-- Stages injected by JS -->
+          </div>
+          <!-- Stage Logs Panel -->
+          <div class="stage-logs-panel" id="stage-logs-panel">
+            <div class="terminal">
+              <div class="terminal-header">
+                <div class="terminal-dot red"></div>
+                <div class="terminal-dot yellow"></div>
+                <div class="terminal-dot green"></div>
+                <div class="terminal-title" id="log-title">Stage Logs</div>
+                <button onclick="closeLogPanel()" style="margin-left:auto; background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px;">✕</button>
+              </div>
+              <div class="terminal-body" id="terminal-body"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3 & 4. BOTTOM GRID: History + Triggers -->
+      <div class="bottom-grid">
+        <!-- BUILD HISTORY TABLE -->
+        <div>
+          <div class="section-title-bar">
+            <h3><span class="icon">📋</span> Build History</h3>
+            <div style="display:flex; gap:var(--space-2);">
+              <button class="btn btn-ghost btn-sm">Export</button>
+              <button class="btn btn-ghost btn-sm">Filter</button>
+            </div>
+          </div>
+          <div class="history-card">
+            <div class="table-wrapper" style="border:none; border-radius:0;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Build #</th>
+                    <th>Exam Name</th>
+                    <th>Trigger</th>
+                    <th>Status</th>
+                    <th>Duration</th>
+                    <th>Date</th>
+                  </tr>
+                </thead>
+                <tbody id="history-tbody">
+                  <!-- Injected by JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- PIPELINE TRIGGERS -->
+        <div>
+          <div class="section-title-bar">
+            <h3><span class="icon">🔗</span> Triggers</h3>
+          </div>
+          <div class="trigger-card">
+            <div class="trigger-item">
+              <div class="trigger-label">
+                <div class="trigger-icon">🔔</div>
+                Webhook
+              </div>
+              <div style="display:flex; align-items:center; gap:var(--space-2);">
+                <div class="status-dot online"></div>
+                <span style="font-size:var(--text-xs); color:var(--green); font-weight:600;">Active</span>
+              </div>
+            </div>
+            <div class="trigger-item">
+              <div class="trigger-label">
+                <div class="trigger-icon">🖱️</div>
+                Manual
+              </div>
+              <div style="display:flex; align-items:center; gap:var(--space-2);">
+                <div class="status-dot online"></div>
+                <span style="font-size:var(--text-xs); color:var(--green); font-weight:600;">Enabled</span>
+              </div>
+            </div>
+            <div class="trigger-item">
+              <div class="trigger-label">
+                <div class="trigger-icon">🕐</div>
+                Scheduled
+              </div>
+              <div style="display:flex; align-items:center; gap:var(--space-2);">
+                <div class="status-dot idle"></div>
+                <span style="font-size:var(--text-xs); color:var(--yellow); font-weight:600;">Paused</span>
+              </div>
+            </div>
+
+            <div style="margin-top:var(--space-4); padding-top:var(--space-4); border-top:1px solid var(--border);">
+              <div style="font-size:var(--text-xs); color:var(--text-muted); text-transform:uppercase; letter-spacing:0.08em; font-weight:600; margin-bottom:var(--space-3);">Next Scheduled</div>
+              <div style="font-family:var(--font-mono); font-size:var(--text-sm); color:var(--cyan);">Every day at 06:00 AM</div>
+              <div style="font-size:var(--text-xs); color:var(--text-muted); margin-top:4px;">Exam: Morning Batch</div>
+            </div>
+
+            <div style="margin-top:var(--space-4); padding-top:var(--space-4); border-top:1px solid var(--border);">
+              <div style="font-size:var(--text-xs); color:var(--text-muted); text-transform:uppercase; letter-spacing:0.08em; font-weight:600; margin-bottom:var(--space-3);">Webhook URL</div>
+              <div style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius-sm); padding:var(--space-2) var(--space-3); font-family:var(--font-mono); font-size:10px; color:var(--text-muted); word-break:break-all;">
+                https://examcloud.io/webhook/build/x9k2
+              </div>
+            </div>
+
+            <button class="btn btn-secondary btn-sm w-full" style="margin-top:var(--space-4);">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+              Configure Triggers
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end page-content -->
+  </main>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toast-container"></div>
+
+<script src="js/pipeline.js"></script>
+</body>
+</html>

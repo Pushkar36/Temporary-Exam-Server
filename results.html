@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Exam Results — ExamCloud DevOps Platform</title>
+  <link rel="stylesheet" href="css/global.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-primary: #0a0e1a;
+      --bg-secondary: #0f1629;
+      --bg-card: rgba(15, 22, 41, 0.85);
+      --bg-sidebar: #080c18;
+      --cyan: #00d4ff;
+      --cyan-dim: rgba(0, 212, 255, 0.12);
+      --cyan-glow: rgba(0, 212, 255, 0.35);
+      --purple: #7c3aed;
+      --purple-dim: rgba(124, 58, 237, 0.15);
+      --purple-glow: rgba(124, 58, 237, 0.4);
+      --green: #10b981;
+      --green-dim: rgba(16, 185, 129, 0.15);
+      --yellow: #f59e0b;
+      --yellow-dim: rgba(245, 158, 11, 0.15);
+      --red: #ef4444;
+      --red-dim: rgba(239, 68, 68, 0.15);
+      --text-primary: #e2e8f0;
+      --text-secondary: #94a3b8;
+      --text-muted: #475569;
+      --border: rgba(255,255,255,0.07);
+      --border-cyan: rgba(0,212,255,0.25);
+      --radius: 12px;
+      --radius-lg: 16px;
+      --transition: 0.25s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    html, body { height: 100%; font-family: 'Inter', sans-serif; background: var(--bg-primary); color: var(--text-primary); }
+
+    .results-page {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 32px 24px;
+      min-height: 100vh;
+    }
+
+    /* Header */
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 28px;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .page-header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .back-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 8px 16px; border-radius: 8px;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+      color: var(--text-secondary); text-decoration: none;
+      transition: all var(--transition);
+    }
+    .back-btn:hover { border-color: var(--border-cyan); color: var(--cyan); background: var(--cyan-dim); }
+    .page-title { font-size: 26px; font-weight: 800; color: var(--text-primary); }
+    .page-title span { background: linear-gradient(90deg, var(--cyan), #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+
+    /* Exam selector */
+    .exam-selector {
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    }
+    .exam-select {
+      padding: 9px 16px; border-radius: 8px;
+      background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+      color: var(--text-primary); font-family: 'Inter', sans-serif; font-size: 13px;
+      outline: none; cursor: pointer; min-width: 220px;
+      transition: all var(--transition);
+    }
+    .exam-select:focus { border-color: var(--border-cyan); box-shadow: 0 0 0 3px rgba(0,212,255,0.08); }
+    .exam-select option { background: #111827; color: var(--text-primary); }
+
+    .btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 18px; border-radius: 8px; font-size: 13.5px; font-weight: 600; cursor: pointer; border: none; font-family: 'Inter', sans-serif; transition: all var(--transition); text-decoration: none; white-space: nowrap; }
+    .btn-primary { background: linear-gradient(135deg, var(--cyan), #0099cc); color: #0a0e1a; box-shadow: 0 4px 20px var(--cyan-glow); }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 30px var(--cyan-glow); filter: brightness(1.1); }
+    .btn-ghost { background: rgba(255,255,255,0.04); color: var(--text-secondary); border: 1px solid var(--border); }
+    .btn-ghost:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); border-color: rgba(255,255,255,0.15); }
+
+    /* Stats row */
+    .stats-row {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+      margin-bottom: 24px;
+    }
+    .stat-mini {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px;
+      backdrop-filter: blur(20px); position: relative; overflow: hidden;
+    }
+    .stat-mini::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    }
+    .stat-mini.cyan::before { background: linear-gradient(90deg, var(--cyan), transparent); }
+    .stat-mini.green::before { background: linear-gradient(90deg, var(--green), transparent); }
+    .stat-mini.yellow::before { background: linear-gradient(90deg, var(--yellow), transparent); }
+    .stat-mini.purple::before { background: linear-gradient(90deg, var(--purple), transparent); }
+    .stat-mini-value {
+      font-size: 28px; font-weight: 800; font-family: 'JetBrains Mono', monospace; margin-bottom: 3px;
+    }
+    .stat-mini.cyan .stat-mini-value { color: var(--cyan); }
+    .stat-mini.green .stat-mini-value { color: var(--green); }
+    .stat-mini.yellow .stat-mini-value { color: var(--yellow); }
+    .stat-mini.purple .stat-mini-value { color: #a78bfa; }
+    .stat-mini-label { font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+
+    /* Results card */
+    .card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); backdrop-filter: blur(20px); overflow: hidden;
+    }
+    .card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 20px; border-bottom: 1px solid var(--border);
+    }
+    .card-title { font-size: 14.5px; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+    .card-title-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 8px var(--cyan); animation: pulse-dot 2s infinite; }
+    @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.7;transform:scale(1.2)} }
+    .card-body { padding: 0; }
+
+    /* Table */
+    .results-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .results-table thead th {
+      text-align: left; padding: 14px 16px;
+      font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.8px; color: var(--text-muted);
+      border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.2);
+    }
+    .results-table tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background var(--transition);
+    }
+    .results-table tbody tr:last-child { border-bottom: none; }
+    .results-table tbody tr:hover { background: rgba(255,255,255,0.03); }
+    .results-table tbody td { padding: 14px 16px; vertical-align: middle; }
+
+    .rank-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px; border-radius: 50%;
+      font-size: 11px; font-weight: 800; font-family: 'JetBrains Mono', monospace;
+    }
+    .rank-1 { background: linear-gradient(135deg, #f59e0b, #fbbf24); color: #0a0e1a; box-shadow: 0 0 12px rgba(245,158,11,0.4); }
+    .rank-2 { background: linear-gradient(135deg, #94a3b8, #cbd5e1); color: #0a0e1a; }
+    .rank-3 { background: linear-gradient(135deg, #b45309, #d97706); color: #fff; }
+    .rank-other { background: rgba(255,255,255,0.06); color: var(--text-muted); }
+
+    .student-id-mono {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--cyan); font-weight: 600; font-size: 12px;
+    }
+    .student-name-col { font-weight: 600; color: var(--text-primary); }
+
+    .score-bar-wrap { display: flex; align-items: center; gap: 8px; }
+    .score-bar-track { flex: 1; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; min-width: 80px; }
+    .score-bar-fill { height: 100%; border-radius: 3px; transition: width 1s ease; }
+    .score-bar-fill.high { background: linear-gradient(90deg, var(--green), #34d399); box-shadow: 0 0 6px rgba(16,185,129,0.4); }
+    .score-bar-fill.mid { background: linear-gradient(90deg, var(--yellow), #fbbf24); box-shadow: 0 0 6px rgba(245,158,11,0.4); }
+    .score-bar-fill.low { background: linear-gradient(90deg, var(--red), #f87171); box-shadow: 0 0 6px rgba(239,68,68,0.4); }
+    .score-val { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; min-width: 40px; }
+    .score-val.high { color: var(--green); }
+    .score-val.mid { color: var(--yellow); }
+    .score-val.low { color: var(--red); }
+
+    .test-cases { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-secondary); }
+    .submit-time { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-muted); }
+
+    .code-preview-btn {
+      padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600;
+      background: var(--cyan-dim); color: var(--cyan); border: 1px solid rgba(0,212,255,0.3);
+      cursor: pointer; transition: all var(--transition);
+    }
+    .code-preview-btn:hover { background: rgba(0,212,255,0.2); transform: translateY(-1px); }
+
+    /* Empty state */
+    .empty-state {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 60px 20px; color: var(--text-muted); gap: 12px;
+    }
+    .empty-state .empty-icon { font-size: 48px; opacity: 0.5; }
+    .empty-state .empty-text { font-size: 14px; font-weight: 500; }
+
+    /* Code modal */
+    .code-modal-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8);
+      backdrop-filter: blur(8px); z-index: 1000;
+      align-items: center; justify-content: center;
+    }
+    .code-modal-overlay.open { display: flex; }
+    .code-modal {
+      background: #0d1224; border: 1px solid var(--border-cyan);
+      border-radius: var(--radius-lg); width: 90%; max-width: 700px;
+      max-height: 80vh; overflow: hidden; box-shadow: 0 32px 80px rgba(0,0,0,0.6);
+    }
+    .code-modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 20px; border-bottom: 1px solid var(--border);
+      background: rgba(0,0,0,0.3);
+    }
+    .code-modal-title { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+    .code-modal-close {
+      background: none; border: none; color: var(--text-muted); font-size: 20px;
+      cursor: pointer; padding: 4px 8px; transition: color var(--transition);
+    }
+    .code-modal-close:hover { color: var(--red); }
+    .code-modal-body {
+      padding: 20px; overflow-y: auto; max-height: 60vh;
+    }
+    .code-modal-body pre {
+      font-family: 'JetBrains Mono', monospace; font-size: 13px;
+      color: var(--text-primary); line-height: 1.6; white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* Toast */
+    .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 600px) {
+      .stats-row { grid-template-columns: 1fr; }
+      .page-header { flex-direction: column; align-items: flex-start; }
+    }
+
+    /* Animations */
+    @keyframes fadeInUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+    .fade-in { animation: fadeInUp 0.55s ease both; }
+  </style>
+</head>
+<body>
+
+<div class="results-page">
+
+  <!-- Header -->
+  <div class="page-header fade-in">
+    <div class="page-header-left">
+      <a href="admin-dashboard.html" class="back-btn">← Dashboard</a>
+      <h1 class="page-title">📊 Exam <span>Results</span></h1>
+    </div>
+    <div class="exam-selector">
+      <select class="exam-select" id="examSelect" onchange="loadResults()">
+        <option value="">— Select an exam —</option>
+      </select>
+      <button class="btn btn-ghost" onclick="exportCSV()" id="exportBtn" style="display:none;">📥 Export CSV</button>
+    </div>
+  </div>
+
+  <!-- Stats Row -->
+  <div class="stats-row fade-in" id="statsRow" style="display:none;">
+    <div class="stat-mini cyan">
+      <div class="stat-mini-value" id="stat-total">0</div>
+      <div class="stat-mini-label">Total Submissions</div>
+    </div>
+    <div class="stat-mini green">
+      <div class="stat-mini-value" id="stat-avg">0</div>
+      <div class="stat-mini-label">Avg Score</div>
+    </div>
+    <div class="stat-mini yellow">
+      <div class="stat-mini-value" id="stat-highest">0</div>
+      <div class="stat-mini-label">Highest Score</div>
+    </div>
+    <div class="stat-mini purple">
+      <div class="stat-mini-value" id="stat-pass">0%</div>
+      <div class="stat-mini-label">Pass Rate (≥60)</div>
+    </div>
+  </div>
+
+  <!-- Results Table -->
+  <div class="card fade-in">
+    <div class="card-header">
+      <div class="card-title">
+        <div class="card-title-dot"></div>
+        Student Submissions
+      </div>
+      <span style="font-size:12px;color:var(--text-muted);" id="result-count"></span>
+    </div>
+    <div class="card-body">
+      <div id="results-content">
+        <div class="empty-state">
+          <div class="empty-icon">📋</div>
+          <div class="empty-text">Select an exam above to view results</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Code Preview Modal -->
+<div class="code-modal-overlay" id="codeModal">
+  <div class="code-modal">
+    <div class="code-modal-header">
+      <span class="code-modal-title" id="codeModalTitle">Code Preview</span>
+      <button class="code-modal-close" onclick="closeCodeModal()">✕</button>
+    </div>
+    <div class="code-modal-body">
+      <pre id="codeModalContent"></pre>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+  // ─── State ────────────────────────────────────────────────
+  let currentResults = [];
+
+  // ─── Load exams into dropdown ─────────────────────────────
+  async function loadExams() {
+    try {
+      const resp = await fetch('/api/exams');
+      const data = await resp.json();
+      const select = document.getElementById('examSelect');
+
+      if (data.success && data.data.length) {
+        data.data.forEach(exam => {
+          const opt = document.createElement('option');
+          opt.value = exam.id;
+          opt.textContent = `${exam.exam_name} (${exam.language}) — ${exam.status}`;
+          select.appendChild(opt);
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load exams:', err);
+    }
+  }
+
+  // ─── Load results for selected exam ───────────────────────
+  async function loadResults() {
+    const examId = document.getElementById('examSelect').value;
+    const content = document.getElementById('results-content');
+    const statsRow = document.getElementById('statsRow');
+    const exportBtn = document.getElementById('exportBtn');
+
+    if (!examId) {
+      content.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">Select an exam above to view results</div></div>';
+      statsRow.style.display = 'none';
+      exportBtn.style.display = 'none';
+      return;
+    }
+
+    content.innerHTML = '<div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-text">Loading results...</div></div>';
+
+    try {
+      const resp = await fetch('/api/results/' + examId);
+      const data = await resp.json();
+
+      if (!data.success) {
+        content.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">' + (data.error || 'Error loading results') + '</div></div>';
+        return;
+      }
+
+      const { exam, submissions } = data.data;
+      currentResults = submissions;
+
+      if (!submissions.length) {
+        content.innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">No submissions yet for this exam</div></div>';
+        statsRow.style.display = 'none';
+        exportBtn.style.display = 'none';
+        document.getElementById('result-count').textContent = '';
+        return;
+      }
+
+      // Update stats
+      const total = submissions.length;
+      const scores = submissions.map(s => s.score || 0);
+      const avg = (scores.reduce((a, b) => a + b, 0) / total).toFixed(1);
+      const highest = Math.max(...scores);
+      const passCount = scores.filter(s => s >= 60).length;
+      const passRate = Math.round((passCount / total) * 100);
+
+      document.getElementById('stat-total').textContent = total;
+      document.getElementById('stat-avg').textContent = avg;
+      document.getElementById('stat-highest').textContent = highest;
+      document.getElementById('stat-pass').textContent = passRate + '%';
+      statsRow.style.display = 'grid';
+      exportBtn.style.display = 'inline-flex';
+      document.getElementById('result-count').textContent = total + ' submissions';
+
+      // Build table
+      let html = `<table class="results-table">
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Student ID</th>
+            <th>Name</th>
+            <th>Score</th>
+            <th>Test Cases</th>
+            <th>Submitted</th>
+            <th>Code</th>
+          </tr>
+        </thead>
+        <tbody>`;
+
+      submissions.forEach((s, i) => {
+        const rank = i + 1;
+        const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : 'rank-other';
+        const score = s.score || 0;
+        const scoreClass = score >= 80 ? 'high' : score >= 60 ? 'mid' : 'low';
+        const passed = s.test_cases_passed || 0;
+        const total = s.test_cases_total || 0;
+        const submitTime = s.submitted_at ? new Date(s.submitted_at).toLocaleString() : '—';
+
+        html += `<tr>
+          <td><span class="rank-badge ${rankClass}">${rank}</span></td>
+          <td><span class="student-id-mono">${s.student_id}</span></td>
+          <td><span class="student-name-col">${s.student_name || s.student_id}</span></td>
+          <td>
+            <div class="score-bar-wrap">
+              <div class="score-bar-track">
+                <div class="score-bar-fill ${scoreClass}" style="width:${score}%"></div>
+              </div>
+              <span class="score-val ${scoreClass}">${score}</span>
+            </div>
+          </td>
+          <td><span class="test-cases">${passed}/${total}</span></td>
+          <td><span class="submit-time">${submitTime}</span></td>
+          <td><button class="code-preview-btn" onclick="showCode(${i})">View</button></td>
+        </tr>`;
+      });
+
+      html += '</tbody></table>';
+      content.innerHTML = html;
+
+    } catch (err) {
+      content.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">Server error: ' + err.message + '</div></div>';
+    }
+  }
+
+  // ─── Show code modal ──────────────────────────────────────
+  function showCode(index) {
+    const s = currentResults[index];
+    if (!s) return;
+    document.getElementById('codeModalTitle').textContent = `Code — ${s.student_name || s.student_id}`;
+    document.getElementById('codeModalContent').textContent = s.code || '(no code submitted)';
+    document.getElementById('codeModal').classList.add('open');
+  }
+
+  function closeCodeModal() {
+    document.getElementById('codeModal').classList.remove('open');
+  }
+
+  // Close modal on overlay click
+  document.getElementById('codeModal').addEventListener('click', function(e) {
+    if (e.target === this) closeCodeModal();
+  });
+
+  // ─── Export CSV ───────────────────────────────────────────
+  function exportCSV() {
+    if (!currentResults.length) return;
+
+    const headers = ['Rank', 'Student ID', 'Name', 'Score', 'Test Cases Passed', 'Test Cases Total', 'Submitted At'];
+    const rows = currentResults.map((s, i) => [
+      i + 1,
+      s.student_id,
+      s.student_name || s.student_id,
+      s.score || 0,
+      s.test_cases_passed || 0,
+      s.test_cases_total || 0,
+      s.submitted_at || ''
+    ]);
+
+    let csv = headers.join(',') + '\n';
+    rows.forEach(r => {
+      csv += r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',') + '\n';
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `exam-results-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ─── Toast ────────────────────────────────────────────────
+  function showToast(type, message) {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+      padding: 12px 16px; border-radius: 10px; font-size: 13px; font-weight: 500;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5); animation: fadeInUp 0.3s ease;
+      background: ${type === 'success' ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)'};
+      border: 1px solid ${type === 'success' ? 'rgba(16,185,129,0.35)' : 'rgba(239,68,68,0.35)'};
+      color: ${type === 'success' ? '#34d399' : '#f87171'};
+    `;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 3500);
+  }
+
+  // ─── Init ─────────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', loadExams);
+</script>
+</body>
+</html>

@@ -1,0 +1,1284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Student Portal — Python Lab Test | ExamCloud</title>
+  <link rel="stylesheet" href="css/global.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+  <style>
+    /* ── EXAM PORTAL LAYOUT ── */
+    html, body { height: 100%; overflow: hidden; }
+
+    .exam-layout {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      background: var(--bg-primary);
+    }
+
+    /* ── EXAM HEADER ── */
+    .exam-header {
+      height: 56px;
+      background: rgba(10, 14, 26, 0.95);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 var(--space-5);
+      flex-shrink: 0;
+      position: relative;
+      z-index: 50;
+      box-shadow: 0 2px 20px rgba(0,0,0,0.4);
+    }
+
+    .exam-header::before {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(0,212,255,0.5), rgba(124,58,237,0.5), transparent);
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+      flex: 1;
+    }
+
+    .exam-logo {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding-right: var(--space-4);
+      border-right: 1px solid var(--border);
+    }
+
+    .exam-logo .logo-icon {
+      width: 30px; height: 30px;
+      background: linear-gradient(135deg, var(--cyan), var(--purple));
+      border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+
+    .exam-logo .logo-text {
+      font-size: var(--text-xs);
+      font-weight: 800;
+      color: var(--text-primary);
+    }
+    .exam-logo .logo-text span { color: var(--cyan); }
+
+    .header-info {
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+    }
+
+    .header-info-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      font-size: var(--text-xs);
+    }
+
+    .header-info-item .label {
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .header-info-item .value {
+      color: var(--text-primary);
+      font-weight: 600;
+      font-family: var(--font-mono);
+    }
+
+    .info-sep {
+      width: 1px; height: 16px;
+      background: var(--border);
+    }
+
+    /* ── COUNTDOWN TIMER ── */
+    .header-center {
+      position: absolute;
+      left: 50%; transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .countdown-wrap {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .countdown-label {
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 2px;
+    }
+
+    #countdown-timer {
+      font-family: var(--font-mono);
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--cyan);
+      letter-spacing: 0.08em;
+      text-shadow: 0 0 20px rgba(0,212,255,0.5);
+      transition: color 0.5s ease, text-shadow 0.5s ease;
+      min-width: 110px;
+      text-align: center;
+    }
+
+    #countdown-timer.warning {
+      color: var(--yellow);
+      text-shadow: 0 0 20px rgba(245,158,11,0.6);
+      animation: glowPulseYellow 1s ease-in-out infinite;
+    }
+
+    #countdown-timer.danger {
+      color: var(--red);
+      text-shadow: 0 0 20px rgba(239,68,68,0.8);
+      animation: glowPulseRed 0.5s ease-in-out infinite;
+    }
+
+    @keyframes glowPulseYellow {
+      0%, 100% { text-shadow: 0 0 10px rgba(245,158,11,0.4); }
+      50% { text-shadow: 0 0 30px rgba(245,158,11,0.9); }
+    }
+    @keyframes glowPulseRed {
+      0%, 100% { text-shadow: 0 0 10px rgba(239,68,68,0.5); }
+      50% { text-shadow: 0 0 35px rgba(239,68,68,1); }
+    }
+
+    .timer-icon { font-size: 14px; }
+
+    /* ── HEADER RIGHT ── */
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      flex: 1;
+      justify-content: flex-end;
+    }
+
+    .connection-status {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      font-size: var(--text-xs);
+      font-weight: 600;
+      color: var(--green);
+      background: rgba(16,185,129,0.1);
+      border: 1px solid rgba(16,185,129,0.25);
+      padding: 4px 10px;
+      border-radius: var(--radius-full);
+    }
+
+    /* ── MAIN 3-PANEL LAYOUT ── */
+    .exam-body {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      gap: 0;
+    }
+
+    /* ── LEFT INSTRUCTIONS PANEL ── */
+    .instructions-panel {
+      width: 20%;
+      min-width: 220px;
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+
+    .panel-header {
+      padding: var(--space-4) var(--space-4) var(--space-3);
+      border-bottom: 1px solid var(--border);
+      background: rgba(0,0,0,0.2);
+      flex-shrink: 0;
+    }
+
+    .panel-title {
+      font-size: var(--text-xs);
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .panel-title svg { color: var(--cyan); }
+
+    .instructions-content {
+      padding: var(--space-4);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-4);
+    }
+
+    .exam-title-block {
+      padding: var(--space-3) var(--space-4);
+      background: linear-gradient(135deg, rgba(0,212,255,0.08), rgba(124,58,237,0.08));
+      border: 1px solid rgba(0,212,255,0.15);
+      border-radius: var(--radius-md);
+    }
+
+    .exam-title-block h3 {
+      font-size: var(--text-sm);
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+
+    .problem-section {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+    }
+
+    .problem-section h4 {
+      font-size: var(--text-xs);
+      font-weight: 700;
+      color: var(--cyan);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+    }
+
+    .problem-text {
+      font-size: var(--text-xs);
+      color: var(--text-secondary);
+      line-height: 1.7;
+    }
+
+    .problem-steps {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .problem-steps li {
+      display: flex;
+      gap: var(--space-2);
+      font-size: var(--text-xs);
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    .problem-steps li .step-num {
+      width: 18px; height: 18px;
+      background: var(--cyan-dim);
+      border: 1px solid rgba(0,212,255,0.3);
+      color: var(--cyan);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .example-block {
+      background: rgba(0,0,0,0.3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: var(--space-3);
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+
+    .example-block .ex-label {
+      color: var(--text-muted);
+      font-size: 10px;
+      margin-bottom: 4px;
+      font-family: var(--font-ui);
+    }
+
+    .example-block .ex-input { color: var(--cyan); }
+    .example-block .ex-output { color: var(--green); }
+
+    /* Accordion */
+    .accordion-item {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+
+    .accordion-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-3) var(--space-3);
+      cursor: pointer;
+      font-size: var(--text-xs);
+      font-weight: 600;
+      color: var(--text-secondary);
+      background: rgba(0,0,0,0.2);
+      transition: var(--transition-fast);
+    }
+
+    .accordion-header:hover { color: var(--text-primary); background: rgba(0,0,0,0.3); }
+
+    .accordion-chevron {
+      transition: transform 0.25s ease;
+      font-size: 10px;
+    }
+    .accordion-item.open .accordion-chevron { transform: rotate(180deg); }
+
+    .accordion-body {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+    .accordion-item.open .accordion-body { max-height: 400px; }
+
+    .accordion-inner {
+      padding: var(--space-3);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+    }
+
+    .allowed-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .allowed-list li {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      font-size: var(--text-xs);
+      color: var(--text-secondary);
+    }
+
+    .allowed-list li::before {
+      content: '✓';
+      color: var(--green);
+      font-weight: 700;
+    }
+
+    .monitor-warning {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-2);
+      padding: var(--space-3);
+      background: rgba(239,68,68,0.08);
+      border: 1px solid rgba(239,68,68,0.25);
+      border-radius: var(--radius-sm);
+      font-size: var(--text-xs);
+      color: var(--red);
+      line-height: 1.5;
+    }
+
+    .monitor-warning .warn-icon { flex-shrink: 0; font-size: 14px; margin-top: 1px; }
+
+    /* ── CENTER EDITOR PANEL ── */
+    .editor-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-right: 1px solid var(--border);
+      background: #0a0d18;
+    }
+
+    /* Editor tabs */
+    .editor-tabs {
+      display: flex;
+      align-items: center;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      padding: 0 var(--space-4);
+      gap: 0;
+      flex-shrink: 0;
+      overflow-x: auto;
+    }
+
+    .editor-tab {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: 10px var(--space-4);
+      font-size: var(--text-xs);
+      font-weight: 500;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: var(--transition-fast);
+      white-space: nowrap;
+      font-family: var(--font-mono);
+    }
+
+    .editor-tab:hover { color: var(--text-secondary); }
+
+    .editor-tab.active {
+      color: var(--cyan);
+      border-bottom-color: var(--cyan);
+      background: rgba(0,212,255,0.04);
+    }
+
+    .tab-close {
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px;
+      opacity: 0;
+      transition: var(--transition-fast);
+      color: var(--text-muted);
+    }
+    .editor-tab:hover .tab-close { opacity: 1; }
+    .tab-close:hover { background: rgba(239,68,68,0.3); color: var(--red); }
+
+    /* Editor area */
+    .editor-area {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .line-numbers {
+      padding: 14px 0;
+      min-width: 48px;
+      text-align: right;
+      background: rgba(0,0,0,0.2);
+      border-right: 1px solid rgba(255,255,255,0.05);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text-muted);
+      user-select: none;
+      overflow: hidden;
+      padding-right: 12px;
+      padding-left: 8px;
+    }
+
+    .line-numbers span {
+      display: block;
+      line-height: 20.8px;
+    }
+
+    #code-editor {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      resize: none;
+      color: #e2e8f0;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.6;
+      padding: 14px var(--space-4);
+      tab-size: 4;
+      white-space: pre;
+      overflow-wrap: normal;
+      overflow-x: auto;
+      caret-color: var(--cyan);
+    }
+
+    #code-editor::selection { background: rgba(0,212,255,0.15); }
+
+    /* Editor bottom toolbar */
+    .editor-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-2) var(--space-4);
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .toolbar-buttons {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .toolbar-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: var(--radius-sm);
+      font-size: var(--text-xs);
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      transition: var(--transition-fast);
+      font-family: var(--font-ui);
+    }
+
+    .toolbar-btn.run {
+      background: linear-gradient(135deg, var(--cyan), #0099cc);
+      color: var(--bg-primary);
+      border-color: transparent;
+      box-shadow: 0 2px 10px rgba(0,212,255,0.25);
+    }
+
+    .toolbar-btn.run:hover {
+      box-shadow: 0 4px 20px rgba(0,212,255,0.45);
+      transform: translateY(-1px);
+    }
+
+    .toolbar-btn.run.running {
+      opacity: 0.8;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    .toolbar-btn.ghost {
+      background: var(--bg-card);
+      color: var(--text-secondary);
+    }
+
+    .toolbar-btn.ghost:hover {
+      background: var(--bg-card-hover);
+      color: var(--text-primary);
+      border-color: rgba(255,255,255,0.15);
+    }
+
+    .toolbar-meta {
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+    }
+
+    .lang-badge {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(124,58,237,0.15);
+      border: 1px solid rgba(124,58,237,0.3);
+      color: var(--purple-light);
+      padding: 2px 10px;
+      border-radius: var(--radius-full);
+      font-weight: 600;
+      font-size: 10px;
+    }
+
+    .autosave-status {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      color: var(--green);
+      font-size: 10px;
+      font-weight: 600;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .autosave-status.visible { opacity: 1; }
+
+    /* Keyboard hint */
+    .kbd {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2px 6px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      vertical-align: middle;
+    }
+
+    /* ── RIGHT TERMINAL PANEL ── */
+    .terminal-panel {
+      width: 25%;
+      min-width: 260px;
+      display: flex;
+      flex-direction: column;
+      background: #010409;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+
+    .terminal-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-2) var(--space-4);
+      background: #0d1224;
+      border-bottom: 1px solid rgba(0,212,255,0.15);
+      flex-shrink: 0;
+    }
+
+    .terminal-dots {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .t-dot {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+    }
+    .t-dot.red    { background: #ef4444; }
+    .t-dot.yellow { background: #f59e0b; }
+    .t-dot.green  { background: #22c55e; }
+
+    .terminal-panel-title {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    .terminal-output-area {
+      flex: 1;
+      padding: var(--space-4);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.7;
+      overflow-y: auto;
+      color: #e2e8f0;
+    }
+
+    .t-line { display: block; word-break: break-all; }
+    .t-sys   { color: #4a5568; }
+    .t-info  { color: var(--cyan); }
+    .t-ok    { color: var(--green); }
+    .t-err   { color: var(--red); }
+    .t-out   { color: #e2e8f0; }
+    .t-warn  { color: var(--yellow); }
+    .t-prompt { color: #a78bfa; }
+    .t-time  { color: var(--text-muted); font-size: 10px; }
+    .t-dim   { color: #334155; }
+
+    .terminal-divider {
+      height: 1px;
+      background: rgba(0,212,255,0.1);
+      margin: var(--space-2) 0;
+    }
+
+    /* Terminal input area */
+    .terminal-input-area {
+      border-top: 1px solid rgba(0,212,255,0.15);
+      padding: var(--space-2) var(--space-3);
+      background: #0a0d18;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+    }
+
+    .stdin-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+    }
+
+    .stdin-input-row {
+      display: flex;
+      gap: var(--space-2);
+    }
+
+    #stdin-input {
+      flex: 1;
+      background: rgba(0,0,0,0.5);
+      border: 1px solid rgba(0,212,255,0.2);
+      border-radius: var(--radius-sm);
+      padding: 6px 10px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--cyan);
+      outline: none;
+      transition: var(--transition-fast);
+    }
+
+    #stdin-input:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 0 2px rgba(0,212,255,0.1);
+    }
+
+    #stdin-input::placeholder { color: #2d3748; }
+
+    .terminal-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-2) var(--space-3);
+      border-top: 1px solid rgba(255,255,255,0.04);
+      flex-shrink: 0;
+    }
+
+    .clear-terminal-btn {
+      font-size: 10px;
+      color: var(--text-muted);
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-family: var(--font-ui);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      border-radius: var(--radius-sm);
+      transition: var(--transition-fast);
+    }
+
+    .clear-terminal-btn:hover {
+      color: var(--red);
+      background: rgba(239,68,68,0.1);
+    }
+
+    #exec-time {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    /* ── RUNNING SPINNER OVERLAY ── */
+    .running-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(1,4,9,0.7);
+      backdrop-filter: blur(2px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: var(--space-3);
+      z-index: 10;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .running-overlay.visible {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .running-text {
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      color: var(--cyan);
+      animation: pulse 1s ease-in-out infinite;
+    }
+
+    /* ── SUBMIT MODAL ── */
+    .submit-modal-content {
+      text-align: center;
+      padding: var(--space-6);
+    }
+
+    .submit-icon {
+      width: 72px; height: 72px;
+      border-radius: 50%;
+      background: var(--cyan-dim);
+      border: 2px solid rgba(0,212,255,0.3);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 32px;
+      margin: 0 auto var(--space-5);
+      animation: glowPulse 2s ease-in-out infinite;
+    }
+
+    .time-remaining-text {
+      display: inline-block;
+      padding: 6px 16px;
+      background: rgba(245,158,11,0.1);
+      border: 1px solid rgba(245,158,11,0.3);
+      border-radius: var(--radius-full);
+      color: var(--yellow);
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      font-weight: 700;
+      margin: var(--space-4) 0;
+    }
+
+    /* ── SUCCESS SCREEN ── */
+    #success-screen {
+      position: fixed;
+      inset: 0;
+      background: rgba(10,14,26,0.97);
+      backdrop-filter: blur(20px);
+      z-index: 2000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: var(--space-6);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.5s ease;
+    }
+
+    #success-screen.visible {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .success-checkmark {
+      width: 100px; height: 100px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, rgba(16,185,129,0.2), rgba(16,185,129,0.1));
+      border: 3px solid var(--green);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 48px;
+      box-shadow: 0 0 60px rgba(16,185,129,0.4), 0 0 120px rgba(16,185,129,0.15);
+      animation: successPop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    @keyframes successPop {
+      0% { transform: scale(0); opacity: 0; }
+      80% { transform: scale(1.1); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .success-content {
+      text-align: center;
+      max-width: 480px;
+    }
+
+    .success-content h2 {
+      font-size: var(--text-3xl);
+      font-weight: 800;
+      margin-bottom: var(--space-3);
+    }
+
+    .success-content p {
+      color: var(--text-secondary);
+      font-size: var(--text-base);
+      line-height: 1.7;
+    }
+
+    .submission-id-block {
+      background: rgba(0,212,255,0.05);
+      border: 1px solid rgba(0,212,255,0.2);
+      border-radius: var(--radius-md);
+      padding: var(--space-4) var(--space-6);
+      font-family: var(--font-mono);
+      margin-top: var(--space-4);
+    }
+
+    .submission-id-label {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      margin-bottom: var(--space-1);
+    }
+
+    .submission-id-value {
+      font-size: var(--text-lg);
+      color: var(--cyan);
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+
+    .success-particles {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1999;
+    }
+
+    .confetti-piece {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      animation: confettiFall linear forwards;
+    }
+
+    @keyframes confettiFall {
+      0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+    }
+
+    /* ── TOAST ADJUSTMENTS ── */
+    .toast-container {
+      bottom: var(--space-4);
+      right: var(--space-4);
+    }
+
+    /* ── RESIZE HANDLE (visual only) ── */
+    .resize-handle {
+      width: 3px;
+      background: var(--border);
+      cursor: col-resize;
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+    .resize-handle:hover { background: var(--cyan); }
+  </style>
+</head>
+<body>
+<div class="exam-layout">
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- EXAM HEADER                                         -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <header class="exam-header">
+    <!-- LEFT: Identity -->
+    <div class="header-left">
+      <div class="exam-logo">
+        <div class="logo-icon">⚡</div>
+        <div class="logo-text">Exam<span>Cloud</span></div>
+      </div>
+      <div class="header-info">
+        <div class="header-info-item">
+          <span class="label">Student</span>
+          <span class="value" id="headerStudentName">Rahul Sharma</span>
+        </div>
+        <div class="info-sep"></div>
+        <div class="header-info-item">
+          <span class="label">Exam</span>
+          <span class="value" id="headerExamName">Python Lab Test</span>
+        </div>
+        <div class="info-sep"></div>
+        <div class="header-info-item">
+          <span class="label">Container</span>
+          <span class="value" id="headerContainerId" style="color: var(--cyan);">ctn-023</span>
+        </div>
+        <div class="info-sep"></div>
+        <div class="header-info-item">
+          <span class="label">Port</span>
+          <span class="value" id="headerPort" style="color: var(--purple-light);">8023</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CENTER: Countdown Timer -->
+    <div class="header-center">
+      <div class="countdown-label">⏱ Time Remaining</div>
+      <div id="countdown-timer">02:00:00</div>
+    </div>
+
+    <!-- RIGHT: Actions -->
+    <div class="header-right">
+      <div class="connection-status">
+        <div class="status-dot online"></div>
+        Connected
+      </div>
+      <button class="btn btn-success btn-sm" id="submit-btn" onclick="openSubmitModal()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        Submit Code
+      </button>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- EXAM BODY                                           -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <div class="exam-body">
+
+    <!-- ─── LEFT: INSTRUCTIONS PANEL ─── -->
+    <aside class="instructions-panel anim-fade-in">
+      <div class="panel-header">
+        <div class="panel-title">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+          Instructions
+        </div>
+      </div>
+
+      <div class="instructions-content">
+        <!-- Exam Badge -->
+        <div class="exam-title-block">
+          <h3 id="sidebarExamTitle">Python Lab Test</h3>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">
+            <span class="badge badge-purple" id="sidebarExamLang">Python 3.11</span>
+            <span class="badge badge-cyan" id="sidebarExamDuration">2 Hours</span>
+            <span class="badge badge-green">Active</span>
+          </div>
+        </div>
+
+        <!-- Problem Statement -->
+        <div class="problem-section" id="problemStatementSection">
+          <h4>📋 Problem Statement</h4>
+          <div id="instructionsText" class="problem-text" style="white-space: pre-wrap; font-family: 'Inter', sans-serif; line-height: 1.6;">Write a Python program that:
+            <ul class="problem-steps">
+              <li>
+                <span class="step-num">1</span>
+                <span>Takes a list of N numbers as input</span>
+              </li>
+              <li>
+                <span class="step-num">2</span>
+                <span>Finds the <strong style="color:var(--cyan)">second largest</strong> number</span>
+              </li>
+              <li>
+                <span class="step-num">3</span>
+                <span>Returns <code style="color:var(--red);background:rgba(239,68,68,0.1);padding:1px 5px;border-radius:3px;">-1</code> if no second largest exists</span>
+              </li>
+            </ul>
+            <div style="margin-top:4px;">
+              <p class="problem-text" style="margin-bottom:4px;"><strong style="color:var(--text-secondary);">Input:</strong> 5 numbers separated by spaces</p>
+            </div>
+            <div class="example-block">
+              <div class="ex-label">Example:</div>
+              <div class="ex-input">Input: &nbsp;3 1 4 1 5 9</div>
+              <div class="ex-output">Output: 5</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Test Cases Accordion -->
+        <div class="accordion-item" id="accordion-tests">
+          <div class="accordion-header" onclick="toggleAccordion('accordion-tests')">
+            <span>🧪 Example Test Cases</span>
+            <span class="accordion-chevron">▼</span>
+          </div>
+          <div class="accordion-body">
+            <div class="accordion-inner">
+              <div class="example-block">
+                <div class="ex-label">Test 1</div>
+                <div class="ex-input">In:  5 → 1 2 3 4 5</div>
+                <div class="ex-output">Out: 4</div>
+              </div>
+              <div class="example-block">
+                <div class="ex-label">Test 2</div>
+                <div class="ex-input">In:  3 → 5 5 5</div>
+                <div class="ex-output">Out: -1</div>
+              </div>
+              <div class="example-block">
+                <div class="ex-label">Test 3</div>
+                <div class="ex-input">In:  1 → 42</div>
+                <div class="ex-output">Out: -1</div>
+              </div>
+              <div class="example-block">
+                <div class="ex-label">Test 4</div>
+                <div class="ex-input">In:  4 → -3 -1 -7 -2</div>
+                <div class="ex-output">Out: -2</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Allowed Resources Accordion -->
+        <div class="accordion-item open" id="accordion-resources">
+          <div class="accordion-header" onclick="toggleAccordion('accordion-resources')">
+            <span>📚 Allowed Resources</span>
+            <span class="accordion-chevron">▼</span>
+          </div>
+          <div class="accordion-body">
+            <div class="accordion-inner">
+              <ul class="allowed-list">
+                <li>Python built-in functions</li>
+                <li>Standard library only</li>
+                <li>list, set, dict, sort()</li>
+                <li>min(), max() functions</li>
+              </ul>
+              <div style="height:1px;background:var(--border);margin:4px 0;"></div>
+              <p style="font-size:10px;color:var(--red);">✗ No external libraries<br>✗ No internet access<br>✗ No file I/O</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Warning -->
+        <div class="monitor-warning">
+          <span class="warn-icon">🔒</span>
+          <div>
+            <strong>Monitored Environment</strong><br>
+            All code executions and keystrokes are logged. Violations may result in disqualification.
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ─── CENTER: CODE EDITOR PANEL ─── -->
+    <main class="editor-panel anim-fade-in delay-100">
+      <!-- Editor Tabs -->
+      <div class="editor-tabs" id="editorTabsContainer">
+        <div class="editor-tab active" id="mainEditorTab" onclick="switchTab(this, 'main.py')">
+          <span id="mainTabIcon">🐍</span>
+          <span id="mainTabLabel">main.py</span>
+          <span class="tab-close">✕</span>
+        </div>
+        <div class="editor-tab" onclick="switchTab(this, 'test.py')">
+          <span>🧪</span>
+          <span>test.py</span>
+          <span class="tab-close">✕</span>
+        </div>
+        <div class="editor-tab" onclick="switchTab(this, 'README.md')">
+          <span>📄</span>
+          <span>README.md</span>
+          <span class="tab-close">✕</span>
+        </div>
+      </div>
+
+      <!-- Editor Area -->
+      <div class="editor-area">
+        <div class="line-numbers" id="line-numbers"></div>
+        <textarea
+          id="code-editor"
+          spellcheck="false"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          data-gramm="false"
+        ></textarea>
+
+        <!-- Running Overlay -->
+        <div class="running-overlay" id="running-overlay">
+          <div class="spinner spinner-lg"></div>
+          <div class="running-text" id="running-text-msg">Executing in ctn-023...</div>
+        </div>
+      </div>
+
+      <!-- Editor Toolbar -->
+      <div class="editor-toolbar">
+        <div class="toolbar-buttons">
+          <button class="toolbar-btn run" id="run-btn" onclick="runCode()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Run Code
+            <span style="opacity:0.6;font-weight:400;">
+              <kbd class="kbd">Ctrl</kbd><kbd class="kbd">↵</kbd>
+            </span>
+          </button>
+          <button class="toolbar-btn ghost" onclick="clearEditor()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+            Clear
+          </button>
+          <button class="toolbar-btn ghost" onclick="resetCode()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+            Reset
+          </button>
+          <button class="toolbar-btn ghost" onclick="formatCode()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="21" y1="10" x2="7" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="21" y1="18" x2="7" y2="18"/></svg>
+            Format
+          </button>
+        </div>
+        <div class="toolbar-meta">
+          <div class="autosave-status" id="autosave-status">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+            Saved
+          </div>
+          <span id="file-size">0 bytes</span>
+          <span>|</span>
+          <span id="cursor-pos">Ln 1, Col 1</span>
+          <div class="lang-badge" id="editorToolbarLangBadge">
+            <span>🐍</span>
+            Python 3.11
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- ─── RIGHT: TERMINAL PANEL ─── -->
+    <aside class="terminal-panel anim-fade-in delay-200">
+      <div class="terminal-panel-header">
+        <div class="terminal-dots">
+          <div class="t-dot red"></div>
+          <div class="t-dot yellow"></div>
+          <div class="t-dot green"></div>
+        </div>
+        <div class="terminal-panel-title" id="terminalPanelTitle">Output Terminal — ctn-023</div>
+        <div style="width:46px;"></div>
+      </div>
+
+      <div class="terminal-output-area" id="terminal-output">
+        <span class="t-line t-info">Python 3.11.0 (ExamCloud Container ctn-023)</span>
+        <span class="t-line t-sys">Container started: 2026-05-20 12:25:00 IST</span>
+        <span class="t-line t-sys">Memory: 512MB | CPU: 0.5 vCPU</span>
+        <span class="t-line t-dim">────────────────────────────────────────</span>
+        <span class="t-line" style="color:#4a5568;">Type code and click Run ▶ to execute</span>
+        <span class="t-line" style="color:#4a5568;">Keyboard shortcut: Ctrl+Enter</span>
+        <span class="t-line">&nbsp;</span>
+      </div>
+
+      <div class="terminal-input-area">
+        <div class="stdin-label">stdin — program input</div>
+        <div class="stdin-input-row">
+          <input
+            type="text"
+            id="stdin-input"
+            placeholder="Enter program input here..."
+            autocomplete="off"
+          />
+        </div>
+        <div style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono);">Separate multiple lines with \n</div>
+      </div>
+
+      <div class="terminal-actions">
+        <button class="clear-terminal-btn" onclick="clearTerminal()">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+          Clear Terminal
+        </button>
+        <span id="exec-time"></span>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SUBMIT CONFIRMATION MODAL                               -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="submit-modal">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-header">
+      <div class="modal-title">Submit Your Code?</div>
+      <button class="modal-close" onclick="closeSubmitModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="submit-modal-content">
+        <div class="submit-icon">📤</div>
+        <p style="font-size:var(--text-base);color:var(--text-primary);font-weight:600;margin-bottom:var(--space-3);">Are you sure you want to submit?</p>
+        <p style="color:var(--text-secondary);font-size:var(--text-sm);line-height:1.7;">
+          This will finalize your submission for <strong style="color:var(--text-primary)">Python Lab Test</strong>. You will not be able to make further changes after submission.
+        </p>
+        <div class="time-remaining-text">⏱ Time Remaining: <span id="modal-time-remaining">02:00:00</span></div>
+        <p style="font-size:var(--text-xs);color:var(--text-muted);">Your code will be saved and evaluated by the proctoring system.</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeSubmitModal()">Cancel</button>
+      <button class="btn btn-success btn-sm" onclick="confirmSubmit()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        Yes, Submit
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SUCCESS SCREEN                                          -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div id="success-screen">
+  <div class="success-particles" id="confetti-container"></div>
+  <div class="success-checkmark">✓</div>
+  <div class="success-content">
+    <h2 style="background:linear-gradient(135deg,var(--green),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">
+      Code Submitted Successfully!
+    </h2>
+    <p>Your code has been submitted and saved. The container will be cleaned up after the exam ends. Results will be available on the admin dashboard.</p>
+    <div class="submission-id-block">
+      <div class="submission-id-label">Submission ID</div>
+      <div class="submission-id-value" id="submission-id-display">—</div>
+    </div>
+    <div style="margin-top:var(--space-4);display:flex;gap:var(--space-3);justify-content:center;">
+      <span class="badge badge-green">✓ Exam Completed</span>
+      <span class="badge badge-cyan" id="successContainerBadge">ctn-023</span>
+      <span class="badge badge-ghost">Python Lab Test</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- TOAST CONTAINER                                         -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="toast-container" id="toast-container"></div>
+
+<script src="js/editor.js"></script>
+</body>
+</html>

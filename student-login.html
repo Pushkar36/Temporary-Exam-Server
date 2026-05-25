@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Student Login — Temporary Exam Server Generator</title>
+  <link rel="stylesheet" href="css/global.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+  <style>
+    /* ── FULL PAGE BACKGROUND ────────────────────────────────── */
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+      overflow-x: hidden;
+      position: relative;
+      background: #080c18;
+    }
+
+    /* Grid overlay */
+    .bg-grid-layer {
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,212,255,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,212,255,0.04) 1px, transparent 1px);
+      background-size: 50px 50px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Animated orbs */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(90px);
+      pointer-events: none;
+      z-index: 0;
+      animation: orbFloat 10s ease-in-out infinite;
+    }
+
+    @keyframes orbFloat {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      33%       { transform: translate(30px, -40px) scale(1.06); }
+      66%       { transform: translate(-20px, 20px) scale(0.96); }
+    }
+
+    .orb-1 {
+      width: 600px;
+      height: 600px;
+      top: -200px;
+      left: -150px;
+      background: radial-gradient(circle, rgba(0,212,255,0.14), transparent 65%);
+      animation-duration: 12s;
+    }
+
+    .orb-2 {
+      width: 500px;
+      height: 500px;
+      bottom: -150px;
+      right: -100px;
+      background: radial-gradient(circle, rgba(124,58,237,0.2), transparent 65%);
+      animation-duration: 9s;
+      animation-delay: -3s;
+    }
+
+    .orb-3 {
+      width: 350px;
+      height: 350px;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: radial-gradient(circle, rgba(16,185,129,0.07), transparent 65%);
+      animation-duration: 15s;
+      animation-delay: -6s;
+    }
+
+    /* ── PAGE WRAPPER ────────────────────────────────────────── */
+    .page-wrapper {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      max-width: 500px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    /* ── LOGO HEADER ─────────────────────────────────────────── */
+    .page-header {
+      text-align: center;
+      animation: fadeInDown 0.5s ease forwards;
+    }
+
+    .header-logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .logo-icon {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, #00d4ff, #7c3aed);
+      border-radius: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      box-shadow: 0 0 25px rgba(0,212,255,0.35);
+    }
+
+    .logo-name {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: #f1f5f9;
+    }
+
+    .logo-name span { color: #00d4ff; }
+
+    .page-title {
+      font-size: 1.9rem;
+      font-weight: 900;
+      color: #f1f5f9;
+      line-height: 1.2;
+      margin-bottom: 0.4rem;
+    }
+
+    .page-title .highlight {
+      background: linear-gradient(135deg, #00d4ff, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .page-subtitle {
+      font-size: 0.875rem;
+      color: #64748b;
+    }
+
+
+
+    /* ── LOGIN CARD ───────────────────────────────────────────── */
+    .login-card {
+      background: rgba(13,18,36,0.78);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 22px;
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      box-shadow: 0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,212,255,0.04);
+      overflow: hidden;
+      animation: fadeInUp 0.55s ease 0.15s forwards;
+      opacity: 0;
+      position: relative;
+    }
+
+    .login-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 15%;
+      right: 15%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(124,58,237,0.6), rgba(0,212,255,0.6), transparent);
+    }
+
+    .card-body-inner {
+      padding: 2rem;
+    }
+
+    /* ── FORM FIELDS ──────────────────────────────────────────── */
+    .form-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 1.125rem;
+    }
+
+    .fld-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .fld-label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #94a3b8;
+      letter-spacing: 0.02em;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .fld-label .lbl-icon { font-size: 12px; }
+
+    .fld-wrap {
+      position: relative;
+    }
+
+    .fld-icon {
+      position: absolute;
+      left: 0.875rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #374151;
+      font-size: 15px;
+      pointer-events: none;
+      transition: color 0.2s ease;
+    }
+
+    .fld-input {
+      width: 100%;
+      padding: 0.8rem 0.875rem 0.8rem 2.6rem;
+      background: rgba(17,24,39,0.85);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 10px;
+      color: #f1f5f9;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.875rem;
+      transition: all 0.2s ease;
+      outline: none;
+    }
+
+    .fld-input:focus {
+      border-color: #7c3aed;
+      box-shadow: 0 0 0 3px rgba(124,58,237,0.12);
+      background: rgba(13,18,36,0.9);
+    }
+
+    .fld-input:focus + .fld-icon,
+    .fld-wrap:focus-within .fld-icon {
+      color: #7c3aed;
+    }
+
+    .fld-input::placeholder { color: #1e293b; }
+
+    .fld-input.error {
+      border-color: rgba(239,68,68,0.5);
+      box-shadow: 0 0 0 3px rgba(239,68,68,0.08);
+    }
+
+    .fld-input.mono {
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: 0.15em;
+      font-size: 1.1rem;
+    }
+
+    .fld-hint {
+      font-size: 0.7rem;
+      color: #374151;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ── JOIN BUTTON ──────────────────────────────────────────── */
+    .btn-join {
+      width: 100%;
+      padding: 1rem;
+      background: linear-gradient(135deg, #7c3aed, #5b21b6);
+      border: none;
+      border-radius: 12px;
+      color: white;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.625rem;
+      box-shadow: 0 4px 24px rgba(124,58,237,0.35);
+      position: relative;
+      overflow: hidden;
+      margin-top: 0.5rem;
+    }
+
+    .btn-join::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent);
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    .btn-join:hover {
+      box-shadow: 0 6px 36px rgba(124,58,237,0.55);
+      transform: translateY(-2px);
+    }
+
+    .btn-join:hover::before { opacity: 1; }
+    .btn-join:active { transform: translateY(0); }
+    .btn-join:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+
+    .join-spinner {
+      display: none;
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255,255,255,0.25);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    /* ── DOCKER LOADING SEQUENCE ─────────────────────────────── */
+    .docker-progress-section {
+      display: none;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .docker-progress-section.show {
+      display: flex;
+      animation: fadeInUp 0.4s ease forwards;
+    }
+
+    .docker-header {
+      background: #010409;
+      border-radius: 12px 12px 0 0;
+      border: 1px solid rgba(0,212,255,0.2);
+      border-bottom: none;
+      padding: 0.625rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .docker-header-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .docker-header-title {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem;
+      color: #475569;
+      margin-left: 0.25rem;
+    }
+
+    .docker-terminal {
+      background: #010409;
+      border: 1px solid rgba(0,212,255,0.2);
+      border-radius: 0 0 12px 12px;
+      padding: 1rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      line-height: 1.9;
+      min-height: 130px;
+    }
+
+    .docker-log-line {
+      display: flex;
+      align-items: baseline;
+      gap: 0.5rem;
+      opacity: 0;
+      transform: translateY(4px);
+      transition: all 0.3s ease;
+    }
+
+    .docker-log-line.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .docker-prefix { color: #00d4ff; }
+
+    .log-pending { color: #64748b; }
+    .log-running { color: #f59e0b; }
+    .log-success { color: #10b981; }
+    .log-error   { color: #ef4444; }
+
+    /* Staged progress bars */
+    .stage-bars {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+    }
+
+    .stage-bar-row {
+      display: flex;
+      align-items: center;
+      gap: 0.625rem;
+    }
+
+    .stage-name {
+      font-size: 0.65rem;
+      color: #475569;
+      width: 130px;
+      flex-shrink: 0;
+    }
+
+    .stage-track {
+      flex: 1;
+      height: 4px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .stage-fill {
+      height: 100%;
+      border-radius: 2px;
+      width: 0%;
+      transition: width 0.8s ease;
+    }
+
+    .stage-fill.cyan   { background: linear-gradient(90deg, #00d4ff, #0099cc); }
+    .stage-fill.purple { background: linear-gradient(90deg, #7c3aed, #a78bfa); }
+    .stage-fill.green  { background: linear-gradient(90deg, #10b981, #34d399); }
+
+    .stage-pct {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.62rem;
+      color: #475569;
+      width: 30px;
+      text-align: right;
+    }
+
+    /* ── INFO BOX ─────────────────────────────────────────────── */
+    .info-box {
+      background: rgba(0,212,255,0.06);
+      border: 1px solid rgba(0,212,255,0.18);
+      border-radius: 10px;
+      padding: 0.875rem 1rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      margin-top: 0.25rem;
+    }
+
+    .info-icon {
+      font-size: 16px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .info-text {
+      font-size: 0.78rem;
+      color: #64748b;
+      line-height: 1.6;
+    }
+
+    .info-text strong { color: #00d4ff; font-weight: 600; }
+
+    /* ── DIVIDER ──────────────────────────────────────────────── */
+    .section-divider {
+      height: 1px;
+      background: rgba(255,255,255,0.06);
+      margin: 0 -2rem;
+    }
+
+    .card-footer-inner {
+      padding: 1.25rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .footer-link {
+      font-size: 0.8rem;
+      color: #475569;
+      text-decoration: none;
+      transition: color 0.15s ease;
+    }
+
+    .footer-link:hover { color: #00d4ff; }
+    .footer-link span { color: #7c3aed; }
+
+    /* ── TOAST STACK ──────────────────────────────────────────── */
+    .toast-stack {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      z-index: 9000;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .toast-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.875rem 1.125rem;
+      border-radius: 12px;
+      min-width: 280px;
+      max-width: 380px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      animation: slideInRight 0.3s ease;
+      cursor: pointer;
+    }
+
+    .toast-item.error   { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.35); color: #f87171; }
+    .toast-item.success { background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.35); color: #34d399; }
+    .toast-item.info    { background: rgba(0,212,255,0.1); border: 1px solid rgba(0,212,255,0.3); color: #00d4ff; }
+    .toast-item.warning { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); color: #fbbf24; }
+
+    /* ── SLOT COUNTER ANIMATION ──────────────────────────────── */
+    @keyframes countDown {
+      0%   { opacity: 1; }
+      90%  { opacity: 1; }
+      100% { opacity: 0.6; }
+    }
+
+    /* ── RESPONSIVE ──────────────────────────────────────────── */
+    @media (max-width: 560px) {
+      .page-title { font-size: 1.5rem; }
+      .card-body-inner { padding: 1.5rem; }
+      .section-divider { margin: 0 -1.5rem; }
+    }
+
+    @keyframes slideInRight {
+      from { opacity: 0; transform: translateX(50px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Background layers -->
+  <div class="bg-grid-layer"></div>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+
+  <!-- ════════════════ PAGE WRAPPER ════════════════ -->
+  <div class="page-wrapper">
+
+    <!-- Logo / Header -->
+    <div class="page-header">
+      <div class="header-logo">
+        <div class="logo-icon">🖥️</div>
+        <div class="logo-name">Exam<span>Cloud</span></div>
+      </div>
+      <h1 class="page-title">Student <span class="highlight">Portal</span></h1>
+      <p class="page-subtitle">Enter your credentials to join your exam environment</p>
+    </div>
+
+
+
+
+    <!-- Login Card -->
+    <div class="login-card">
+      <div class="card-body-inner">
+
+        <!-- Form (hidden when loading) -->
+        <div id="formSection">
+          <form class="form-stack" id="studentForm" novalidate>
+
+            <!-- Student ID -->
+            <div class="fld-group">
+              <label class="fld-label" for="student-id">
+                <span class="lbl-icon">🎓</span> Student ID
+              </label>
+              <div class="fld-wrap">
+                <input
+                  class="fld-input"
+                  type="text"
+                  id="student-id"
+                  placeholder="e.g. STU2024001"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+                <span class="fld-icon">👤</span>
+              </div>
+            </div>
+
+            <!-- Exam Access Code -->
+            <div class="fld-group">
+              <label class="fld-label" for="exam-code">
+                <span class="lbl-icon">🔑</span> Exam Access Code
+              </label>
+              <div class="fld-wrap">
+                <input
+                  class="fld-input mono"
+                  type="text"
+                  id="exam-code"
+                  placeholder="6-digit code"
+                  maxlength="6"
+                  autocomplete="off"
+                  spellcheck="false"
+                  inputmode="numeric"
+                />
+                <span class="fld-icon">🔐</span>
+              </div>
+              <span class="fld-hint">Provided by your instructor before the exam</span>
+            </div>
+
+            <!-- Password -->
+            <div class="fld-group">
+              <label class="fld-label" for="student-password">
+                <span class="lbl-icon">🔒</span> Password
+              </label>
+              <div class="fld-wrap">
+                <input
+                  class="fld-input"
+                  type="password"
+                  id="student-password"
+                  placeholder="Enter your student password"
+                  autocomplete="current-password"
+                />
+                <span class="fld-icon">🔑</span>
+              </div>
+            </div>
+
+            <!-- Info box -->
+            <div class="info-box">
+              <span class="info-icon">🐳</span>
+              <div class="info-text">
+                Your <strong>isolated Docker environment</strong> will be ready in <strong>~30 seconds</strong> after joining. Each student gets a dedicated container with all required tools pre-installed.
+              </div>
+            </div>
+
+            <!-- Join button -->
+            <button type="submit" class="btn-join" id="joinBtn">
+              <div class="join-spinner" id="joinSpinner"></div>
+              <span id="joinBtnIcon">🚀</span>
+              <span id="joinBtnText">Join Exam Environment</span>
+            </button>
+
+          </form>
+        </div>
+
+        <!-- Docker loading sequence (shown on submit) -->
+        <div class="docker-progress-section" id="dockerSection">
+          <div class="docker-header">
+            <div class="docker-header-dot" style="background:#ef4444;"></div>
+            <div class="docker-header-dot" style="background:#f59e0b;"></div>
+            <div class="docker-header-dot" style="background:#22c55e;"></div>
+            <span class="docker-header-title">container-provisioner.sh</span>
+          </div>
+          <div class="docker-terminal">
+            <div class="docker-log-line" id="log-1">
+              <span class="docker-prefix">$</span>
+              <span class="log-running" id="log-1-text">Pulling Docker image python:3.12-slim...</span>
+            </div>
+            <div class="docker-log-line" id="log-2">
+              <span class="docker-prefix">$</span>
+              <span class="log-pending" id="log-2-text">Creating isolated container...</span>
+            </div>
+            <div class="docker-log-line" id="log-3">
+              <span class="docker-prefix">$</span>
+              <span class="log-pending" id="log-3-text">Configuring environment variables...</span>
+            </div>
+            <div class="docker-log-line" id="log-4">
+              <span class="docker-prefix">$</span>
+              <span class="log-pending" id="log-4-text">Mounting exam workspace...</span>
+            </div>
+            <div class="docker-log-line" id="log-5">
+              <span class="docker-prefix">$</span>
+              <span class="log-pending" id="log-5-text">Starting exam session...</span>
+            </div>
+
+            <!-- Stage progress bars -->
+            <div class="stage-bars" style="margin-top:1rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.75rem;">
+              <div class="stage-bar-row">
+                <span class="stage-name">Pulling image</span>
+                <div class="stage-track"><div class="stage-fill cyan" id="bar-1"></div></div>
+                <span class="stage-pct" id="pct-1">0%</span>
+              </div>
+              <div class="stage-bar-row">
+                <span class="stage-name">Creating container</span>
+                <div class="stage-track"><div class="stage-fill purple" id="bar-2"></div></div>
+                <span class="stage-pct" id="pct-2">0%</span>
+              </div>
+              <div class="stage-bar-row">
+                <span class="stage-name">Configuring env</span>
+                <div class="stage-track"><div class="stage-fill purple" id="bar-3"></div></div>
+                <span class="stage-pct" id="pct-3">0%</span>
+              </div>
+              <div class="stage-bar-row">
+                <span class="stage-name">Container ready</span>
+                <div class="stage-track"><div class="stage-fill green" id="bar-4"></div></div>
+                <span class="stage-pct" id="pct-4">0%</span>
+              </div>
+            </div>
+
+            <div style="margin-top:0.75rem; padding: 0.625rem 0.75rem; background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2); border-radius: 8px; display: none;" id="readyBanner">
+              <span style="color:#10b981; font-size:0.72rem;">✅ Container ready! Launching portal in <span id="countdown">3</span>s...</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="section-divider"></div>
+      <div class="card-footer-inner">
+        <a href="index.html" class="footer-link">← Back to <span>ExamCloud</span> Home</a>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Toast container -->
+  <div class="toast-stack" id="toastStack"></div>
+
+  <script>
+    // ─── Toast helper ──────────────────────────────────────────
+    function showToast(message, type = 'error') {
+      const stack = document.getElementById('toastStack');
+      const icons = { error: '⚠️', success: '✅', info: 'ℹ️', warning: '⏳' };
+      const toast = document.createElement('div');
+      toast.className = `toast-item ${type}`;
+      toast.innerHTML = `<span>${icons[type] || 'ℹ️'}</span><span>${message}</span>`;
+      toast.addEventListener('click', () => toast.remove());
+      stack.appendChild(toast);
+      setTimeout(() => {
+        toast.style.transition = 'all 0.35s ease';
+        toast.style.opacity    = '0';
+        toast.style.transform  = 'translateX(60px)';
+        setTimeout(() => toast.remove(), 350);
+      }, 4000);
+    }
+
+    // ─── Field focus icons ─────────────────────────────────────
+    document.querySelectorAll('.fld-input').forEach(input => {
+      const wrap = input.closest('.fld-wrap');
+      const icon = wrap ? wrap.querySelector('.fld-icon') : null;
+      if (!icon) return;
+      input.addEventListener('focus', () => { icon.style.color = '#7c3aed'; });
+      input.addEventListener('blur',  () => { icon.style.color = '#374151'; });
+    });
+
+    // ─── Exam code — digits only & auto-format ─────────────────
+    const examCodeInput = document.getElementById('exam-code');
+    examCodeInput.addEventListener('input', () => {
+      examCodeInput.value = examCodeInput.value.replace(/\D/g, '').slice(0, 6);
+    });
+
+
+
+    // ─── Validation helpers ────────────────────────────────────
+    function markErr(el) {
+      el.classList.add('error');
+      el.addEventListener('input', () => el.classList.remove('error'), { once: true });
+    }
+
+    // ─── Docker loading sequence ───────────────────────────────
+    function startDockerSequence() {
+      const formSection   = document.getElementById('formSection');
+      const dockerSection = document.getElementById('dockerSection');
+
+      // Swap panels
+      formSection.style.transition = 'opacity 0.3s ease';
+      formSection.style.opacity    = '0';
+      setTimeout(() => {
+        formSection.style.display = 'none';
+        dockerSection.classList.add('show');
+      }, 300);
+
+      // Log messages config
+      const logs = [
+        { id: 'log-1', textId: 'log-1-text', bar: 'bar-1', pct: 'pct-1', text: 'Pulling Docker image python:3.12-slim...', done: 'Image pulled successfully ✓', delay: 0,    barDuration: 900  },
+        { id: 'log-2', textId: 'log-2-text', bar: 'bar-2', pct: 'pct-2', text: 'Creating isolated container...', done: 'Container created ✓',           delay: 900,  barDuration: 600  },
+        { id: 'log-3', textId: 'log-3-text', bar: 'bar-3', pct: 'pct-3', text: 'Configuring environment...', done: 'Environment configured ✓',          delay: 1500, barDuration: 500  },
+        { id: 'log-4', textId: 'log-4-text', bar: 'bar-4', pct: 'pct-4', text: 'Starting exam session...',  done: 'Container ready! 🚀',                delay: 2000, barDuration: 600  },
+      ];
+
+      logs.forEach((cfg, index) => {
+        // Show log line
+        setTimeout(() => {
+          const line = document.getElementById(cfg.id);
+          const textEl = document.getElementById(cfg.textId);
+          line.classList.add('visible');
+          textEl.className = 'log-running';
+          textEl.textContent = cfg.text;
+
+          // Animate bar
+          const bar = document.getElementById(cfg.bar);
+          const pctEl = document.getElementById(cfg.pct);
+          let pctVal = 0;
+          const tick = setInterval(() => {
+            pctVal = Math.min(pctVal + Math.random() * 18 + 6, 100);
+            bar.style.width   = pctVal + '%';
+            pctEl.textContent = Math.floor(pctVal) + '%';
+            if (pctVal >= 100) {
+              clearInterval(tick);
+              bar.style.width   = '100%';
+              pctEl.textContent = '100%';
+              // Mark success
+              setTimeout(() => {
+                textEl.className = 'log-success';
+                textEl.textContent = cfg.done;
+              }, 200);
+            }
+          }, cfg.barDuration / 8);
+
+          // Show next log line
+          if (index < logs.length - 1) {
+            const nextLine = document.getElementById(logs[index + 1].id);
+            setTimeout(() => {
+              nextLine.classList.add('visible');
+            }, cfg.barDuration + 100);
+          }
+
+        }, cfg.delay);
+      });
+
+      // Show "ready" banner + countdown
+      setTimeout(() => {
+        const readyBanner = document.getElementById('readyBanner');
+        readyBanner.style.display = 'block';
+        readyBanner.style.animation = 'fadeInUp 0.4s ease forwards';
+
+        let count = 3;
+        const cdEl = document.getElementById('countdown');
+        const cdTimer = setInterval(() => {
+          count--;
+          cdEl.textContent = count;
+          if (count <= 0) {
+            clearInterval(cdTimer);
+          }
+        }, 1000);
+
+        // Redirect after 3s
+        setTimeout(() => {
+          window.location.href = 'student-portal.html';
+        }, 3000);
+
+      }, 3100);
+    }
+
+    // ─── Form submit ───────────────────────────────────────────
+    const studentForm = document.getElementById('studentForm');
+    const joinBtn     = document.getElementById('joinBtn');
+    const joinSpinner = document.getElementById('joinSpinner');
+    const joinBtnText = document.getElementById('joinBtnText');
+    const joinBtnIcon = document.getElementById('joinBtnIcon');
+
+    studentForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const idVal       = document.getElementById('student-id').value.trim();
+      const codeVal     = document.getElementById('exam-code').value.trim();
+      const passwordVal = document.getElementById('student-password').value.trim();
+      let hasError      = false;
+
+      if (!idVal) {
+        markErr(document.getElementById('student-id'));
+        showToast('Please enter your Student ID.', 'error');
+        hasError = true;
+      }
+
+      if (!codeVal || codeVal.length < 6) {
+        markErr(document.getElementById('exam-code'));
+        if (!hasError) showToast('Please enter the 6-digit exam access code.', 'error');
+        hasError = true;
+      }
+
+      if (!passwordVal) {
+        markErr(document.getElementById('student-password'));
+        if (!hasError) showToast('Please enter your password.', 'error');
+        hasError = true;
+      }
+
+      if (hasError) return;
+
+      // Button loading state
+      joinSpinner.style.display = 'block';
+      joinBtnIcon.style.display = 'none';
+      joinBtnText.textContent   = 'Validating credentials...';
+      joinBtn.disabled          = true;
+
+      showToast('Validating credentials...', 'info');
+
+      try {
+        const resp = await fetch('/api/login/student', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ studentId: idVal, examCode: codeVal, password: passwordVal })
+        });
+        const data = await resp.json();
+
+        if (!data.success) {
+          showToast(data.error || 'Login failed', 'error');
+          joinSpinner.style.display = 'none';
+          joinBtnIcon.style.display = '';
+          joinBtnText.textContent   = 'Join Exam Environment';
+          joinBtn.disabled          = false;
+          return;
+        }
+
+        // Store session in localStorage
+        localStorage.setItem('examcloud_student', JSON.stringify(data.data.student));
+        localStorage.setItem('examcloud_exam', JSON.stringify(data.data.exam));
+        localStorage.setItem('examcloud_container', JSON.stringify(data.data.container));
+
+        showToast('✓ Access granted! Provisioning container...', 'success');
+        joinBtnText.textContent = 'Preparing environment...';
+        setTimeout(() => {
+          startDockerSequence();
+        }, 700);
+      } catch (err) {
+        showToast('Server connection error. Is the server running?', 'error');
+        joinSpinner.style.display = 'none';
+        joinBtnIcon.style.display = '';
+        joinBtnText.textContent   = 'Join Exam Environment';
+        joinBtn.disabled          = false;
+      }
+    });
+  </script>
+</body>
+</html>

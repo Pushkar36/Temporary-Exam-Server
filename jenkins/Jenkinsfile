@@ -1,0 +1,627 @@
+// =============================================================================
+// Jenkinsfile — Temporary Exam Server Generator CI/CD Pipeline
+// =============================================================================
+// Pipeline Type : Declarative
+// Trigger       : Manual (exam admin) or webhook from backend API
+// Purpose       : Build → Push → Generate Configs → Deploy → Monitor → Cleanup
+//
+// Required Jenkins Credentials:
+//   docker-registry-credentials  → Docker Hub / private registry login
+//   github-credentials           → Git repository access
+//   exam-system-webhook-token    → Admin notification webhook secret
+//   jenkins-api-token            → Self-referential Jenkins API calls
+// =============================================================================
+
+pipeline {
+
+  // ===========================================================================
+  // AGENT CONFIGURATION
+  // Run pipeline inside a Docker container to ensure clean environment
+  // ===========================================================================
+  agent {
+    docker {
+      image 'docker:25.0-dind'
+      args  '-v /var/run/docker.sock:/var/run/docker.sock --privileged'
+      reuseNode true
+    }
+  }
+
+  // ===========================================================================
+  // GLOBAL OPTIONS
+  // ===========================================================================
+  options {
+    buildDiscarder(logRotator(numToKeepStr: '20', artifactNumToKeepStr: '10'))
+    timestamps()
+    ansiColor('xterm')
+    timeout(time: 4, unit: 'HOURS')           // Hard cap on total pipeline time
+    disableConcurrentBuilds(abortPrevious: false)
+    skipDefaultCheckout(true)
+  }
+
+  // ===========================================================================
+  // TRIGGERS
+  // ===========================================================================
+  triggers {
+    // Allow external webhook from exam admin dashboard
+    GenericTrigger(
+      genericVariables: [
+        [key: 'EXAM_ID',       value: '$.exam_id'],
+        [key: 'STUDENT_COUNT', value: '$.student_count'],
+        [key: 'EXAM_DURATION', value: '$.duration_minutes'],
+        [key: 'EXAM_LANGUAGE', value: '$.language'],
+      ],
+      causeString: 'Triggered by exam admin: $EXAM_ID',
+      token: 'exam-pipeline-trigger-token',
+      printContributedVariables: true,
+      printPostContent: false
+    )
+  }
+
+  // ===========================================================================
+  // ENVIRONMENT VARIABLES
+  // ===========================================================================
+  environment {
+    // ── Exam Configuration ──────────────────────────────────────────────────
+    EXAM_ID          = "${params.EXAM_ID ?: env.EXAM_ID ?: 'EXAM-2026-DEV'}"
+    STUDENT_COUNT    = "${params.STUDENT_COUNT ?: env.STUDENT_COUNT ?: '30'}"
+    EXAM_DURATION    = "${params.EXAM_DURATION ?: env.EXAM_DURATION ?: '180'}"
+    EXAM_LANGUAGE    = "${params.EXAM_LANGUAGE ?: env.EXAM_LANGUAGE ?: 'python'}"
+
+    // ── Docker Configuration ────────────────────────────────────────────────
+    DOCKER_REGISTRY  = "${params.DOCKER_REGISTRY ?: 'registry.institution.edu'}"
+    IMAGE_NAME       = "exam-student-env"
+    IMAGE_TAG        = "${env.EXAM_ID}-${env.BUILD_NUMBER}"
+    FULL_IMAGE       = "${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+    LATEST_IMAGE     = "${DOCKER_REGISTRY}/${IMAGE_NAME}:latest"
+
+    // ── Network / Port Config ───────────────────────────────────────────────
+    BASE_STUDENT_PORT = "8001"
+    EXAM_NETWORK      = "exam-network"
+
+    // ── Paths ───────────────────────────────────────────────────────────────
+    WORKSPACE_DIR     = "${WORKSPACE}"
+    COMPOSE_FILE      = "${WORKSPACE}/docker/docker-compose.yml"
+    STUDENT_COMPOSE   = "${WORKSPACE}/generated/docker-compose.${EXAM_ID}.yml"
+    SUBMISSIONS_DIR   = "/data/submissions/${EXAM_ID}"
+    LOGS_DIR          = "/data/logs/${EXAM_ID}"
+    URLS_OUTPUT       = "${WORKSPACE}/generated/${EXAM_ID}-access-urls.txt"
+
+    // ── Backend API ─────────────────────────────────────────────────────────
+    API_BASE_URL      = "http://backend-api:3000/api"
+    ADMIN_WEBHOOK_URL = "${params.ADMIN_WEBHOOK_URL ?: 'http://backend-api:3000/api/webhooks/pipeline'}"
+
+    // ── Credentials (injected via Jenkins credential store) ─────────────────
+    DOCKER_CREDENTIALS = credentials('docker-registry-credentials')
+    WEBHOOK_TOKEN      = credentials('exam-system-webhook-token')
+  }
+
+  // ===========================================================================
+  // PARAMETERS (for manual trigger via Jenkins UI)
+  // ===========================================================================
+  parameters {
+    string(name: 'EXAM_ID',        defaultValue: '',    description: 'Exam identifier (e.g. EXAM-2026-A1B2)')
+    string(name: 'STUDENT_COUNT',  defaultValue: '30',  description: 'Number of student containers to create')
+    string(name: 'EXAM_DURATION',  defaultValue: '180', description: 'Exam duration in minutes')
+    string(name: 'EXAM_LANGUAGE',  defaultValue: 'python', description: 'Programming language: python | cpp | java')
+    string(name: 'DOCKER_REGISTRY',defaultValue: 'registry.institution.edu', description: 'Docker registry URL')
+    string(name: 'ADMIN_WEBHOOK_URL', defaultValue: '', description: 'Override admin notification webhook URL')
+    booleanParam(name: 'SKIP_PUSH',    defaultValue: false, description: 'Skip pushing image to registry')
+    booleanParam(name: 'DRY_RUN',      defaultValue: false, description: 'Generate configs only, do not deploy')
+    booleanParam(name: 'FORCE_REBUILD',defaultValue: false, description: 'Force rebuild Docker image even if cached')
+  }
+
+  // ===========================================================================
+  // PIPELINE STAGES
+  // ===========================================================================
+  stages {
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // STAGE 1: CHECKOUT
+    // ─────────────────────────────────────────────────────────────────────────
+    stage('Checkout') {
+      steps {
+        echo "🔄 [Checkout] Fetching source code for exam: ${env.EXAM_ID}"
+
+        retry(3) {
+          checkout([$class: 'GitSCM',
+            branches: [[name: '*/main']],
+            extensions: [
+              [$class: 'CloneOption', depth: 1, shallow: true, noTags: false],
+              [$class: 'CleanBeforeCheckout'],
+              [$class: 'CheckoutOption', timeout: 60],
+            ],
+            userRemoteConfigs: [[
+              url: 'https://github.com/institution/exam-server.git',
+              credentialsId: 'github-credentials'
+            ]]
+          ])
+        }
+
+        script {
+          env.GIT_COMMIT_SHORT = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+          env.GIT_BRANCH_NAME  = sh(script: "git rev-parse --abbrev-ref HEAD", returnStdout: true).trim()
+          echo "✅ Checked out commit: ${env.GIT_COMMIT_SHORT} on branch: ${env.GIT_BRANCH_NAME}"
+        }
+
+        // Create generated output directory
+        sh 'mkdir -p generated logs'
+
+        // Record build start time
+        script {
+          env.BUILD_START_EPOCH = sh(script: 'date +%s', returnStdout: true).trim()
+          env.BUILD_START_TIME  = sh(script: 'date -Iseconds', returnStdout: true).trim()
+        }
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // STAGE 2: BUILD DOCKER IMAGE
+    // ─────────────────────────────────────────────────────────────────────────
+    stage('Build Docker Image') {
+      when {
+        not { expression { return params.DRY_RUN } }
+      }
+      steps {
+        echo "🐳 [Build] Building Docker image: ${env.FULL_IMAGE}"
+
+        script {
+          def buildArgs = [
+            "--build-arg EXAM_ID=${env.EXAM_ID}",
+            "--build-arg EXAM_LANGUAGE=${env.EXAM_LANGUAGE}",
+            "--build-arg BUILD_DATE=${env.BUILD_START_TIME}",
+            "--build-arg GIT_COMMIT=${env.GIT_COMMIT_SHORT}",
+            "--label git.commit=${env.GIT_COMMIT_SHORT}",
+            "--label exam.id=${env.EXAM_ID}",
+            "--label build.number=${env.BUILD_NUMBER}",
+            "-t ${env.FULL_IMAGE}",
+            "-t ${env.LATEST_IMAGE}",
+          ]
+
+          if (!params.FORCE_REBUILD) {
+            buildArgs << "--cache-from ${env.LATEST_IMAGE}"
+          }
+
+          timeout(time: 20, unit: 'MINUTES') {
+            sh """
+              docker build \
+                ${buildArgs.join(' \\\n  ')} \
+                -f docker/Dockerfile \
+                ./docker
+
+              echo "✅ Image built successfully"
+              docker image inspect ${env.FULL_IMAGE} --format '{{json .Size}}' | \
+                awk '{printf "📦 Image size: %.1f MB\\n", \$1/1048576}'
+            """
+          }
+        }
+      }
+      post {
+        success {
+          echo "✅ [Build] Docker image built: ${env.FULL_IMAGE}"
+        }
+        failure {
+          echo "❌ [Build] Docker build failed — check Dockerfile and dependencies"
+        }
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // STAGE 3: PUSH TO REGISTRY
+    // ─────────────────────────────────────────────────────────────────────────
+    stage('Push to Registry') {
+      when {
+        allOf {
+          not { expression { return params.DRY_RUN } }
+          not { expression { return params.SKIP_PUSH } }
+        }
+      }
+      steps {
+        echo "📤 [Push] Pushing image to registry: ${env.DOCKER_REGISTRY}"
+
+        retry(2) {
+          timeout(time: 10, unit: 'MINUTES') {
+            sh """
+              echo "${DOCKER_CREDENTIALS_PSW}" | \
+                docker login ${env.DOCKER_REGISTRY} \
+                  -u ${DOCKER_CREDENTIALS_USR} \
+                  --password-stdin
+
+              docker push ${env.FULL_IMAGE}
+              docker push ${env.LATEST_IMAGE}
+
+              echo "✅ Images pushed to registry"
+              echo "   Tagged:  ${env.FULL_IMAGE}"
+              echo "   Latest:  ${env.LATEST_IMAGE}"
+            """
+          }
+        }
+      }
+      post {
+        always {
+          sh 'docker logout ${DOCKER_REGISTRY} || true'
+        }
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // STAGE 4: GENERATE STUDENT CONFIGS
+    // Calls the create-containers.sh script to generate docker-compose YAML
+    // with one service per student (unique ports, env vars, labels)
+    // ─────────────────────────────────────────────────────────────────────────
+    stage('Generate Student Configs') {
+      steps {
+        echo "⚙️  [Config] Generating docker-compose for ${env.STUDENT_COUNT} students"
+
+        timeout(time: 5, unit: 'MINUTES') {
+          sh """
+            chmod +x scripts/create-containers.sh
+
+            scripts/create-containers.sh \
+              --count    ${env.STUDENT_COUNT} \
+              --exam-id  ${env.EXAM_ID} \
+              --language ${env.EXAM_LANGUAGE} \
+              --duration ${env.EXAM_DURATION} \
+              --image    ${env.FULL_IMAGE} \
+              --output   ${env.STUDENT_COMPOSE} \
+              --dry-run
+
+            echo ""
+            echo "📋 Generated compose file: ${env.STUDENT_COMPOSE}"
+            echo "📊 Total services: \$(grep -c 'student-container-' ${env.STUDENT_COMPOSE})"
+            echo "🔌 Port range: ${env.BASE_STUDENT_PORT} — \$(( ${env.BASE_STUDENT_PORT} + ${env.STUDENT_COUNT} - 1 ))"
+          """
+        }
+
+        // Archive the generated compose file as a build artifact
+        archiveArtifacts(
+          artifacts: "generated/docker-compose.${env.EXAM_ID}.yml",
+          fingerprint: true,
+          onlyIfSuccessful: false
+        )
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // STAGE 5: DEPLOY CONTAINERS
+    // ─────────────────────────────────────────────────────────────────────────
+    stage('Deploy Containers') {
+      when {
+        not { expression { return params.DRY_RUN } }
+      }
+      steps {
+        echo "🚀 [Deploy] Starting ${env.STUDENT_COUNT} student containers"
+
+        timeout(time: 15, unit: 'MINUTES') {
+          sh """
+            # Ensure exam network exists
+            docker network inspect ${env.EXAM_NETWORK} >/dev/null 2>&1 || \
+              docker network create \
+                --driver bridge \
+                --subnet 172.20.0.0/16 \
+                ${env.EXAM_NETWORK}
+
+            # Pull the latest image on all nodes
+            docker pull ${env.FULL_IMAGE}
+
+            # Start infrastructure if not running
+            docker-compose -f ${env.COMPOSE_FILE} up -d --no-recreate
+
+            # Deploy student containers
+            docker-compose \
+              -f ${env.COMPOSE_FILE} \
+              -f ${env.STUDENT_COMPOSE} \
+              up -d \
+              --remove-orphans \
+              --no-build
+
+            echo ""
+            echo "📦 Running containers for exam ${env.EXAM_ID}:"
+            docker ps --filter "label=com.exam.exam.id=${env.EXAM_ID}" \
+              --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+          """
+        }
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // STAGE 6: HEALTH CHECK
+    // Verifies each student container is responsive before marking exam live
+    // ─────────────────────────────────────────────────────────────────────────
+    stage('Health Check') {
+      steps {
+        echo "🏥 [Health] Running health checks on all student containers"
+
+        timeout(time: 10, unit: 'MINUTES') {
+          script {
+            def studentCount = env.STUDENT_COUNT.toInteger()
+            def basePort     = env.BASE_STUDENT_PORT.toInteger()
+            def failedPorts  = []
+            def passedPorts  = []
+
+            // Check each container
+            for (int i = 1; i <= studentCount; i++) {
+              def port   = basePort + i - 1
+              def result = sh(
+                script: """
+                  curl -sf --max-time 5 \
+                    http://localhost:${port}/health \
+                    -o /dev/null -w "%{http_code}"
+                """,
+                returnStdout: true,
+                returnStatus: false
+              ).trim()
+
+              if (result == '200') {
+                passedPorts << port
+              } else {
+                failedPorts << port
+                echo "⚠️  Container on port ${port} returned: ${result}"
+              }
+            }
+
+            echo "\n✅ Healthy: ${passedPorts.size()} / ${studentCount} containers"
+            if (failedPorts) {
+              echo "❌ Unhealthy ports: ${failedPorts.join(', ')}"
+              if (failedPorts.size() > studentCount * 0.1) {
+                error("More than 10% of containers failed health check!")
+              }
+              currentBuild.result = 'UNSTABLE'
+            }
+
+            // Write access URL file
+            sh """
+              > ${env.URLS_OUTPUT}
+              echo "# Exam: ${env.EXAM_ID} — Access URLs" >> ${env.URLS_OUTPUT}
+              echo "# Generated: \$(date -Iseconds)"       >> ${env.URLS_OUTPUT}
+              echo ""                                       >> ${env.URLS_OUTPUT}
+              for i in \$(seq 1 ${studentCount}); do
+                PORT=\$(( ${basePort} + i - 1 ))
+                echo "Student \$i → http://HOST:\${PORT}" >> ${env.URLS_OUTPUT}
+              done
+              echo ""
+              echo "📄 Access URLs written to: ${env.URLS_OUTPUT}"
+            """
+
+            archiveArtifacts(
+              artifacts: "generated/${env.EXAM_ID}-access-urls.txt",
+              fingerprint: true
+            )
+          }
+        }
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // STAGE 7: NOTIFY ADMIN
+    // Posts a webhook notification to the admin dashboard
+    // ─────────────────────────────────────────────────────────────────────────
+    stage('Notify Admin') {
+      steps {
+        echo "📣 [Notify] Sending deployment notification to admin dashboard"
+
+        script {
+          def payload = groovy.json.JsonOutput.toJson([
+            event        : "exam_deployed",
+            exam_id      : env.EXAM_ID,
+            student_count: env.STUDENT_COUNT.toInteger(),
+            exam_duration: env.EXAM_DURATION.toInteger(),
+            base_port    : env.BASE_STUDENT_PORT.toInteger(),
+            image        : env.FULL_IMAGE,
+            build_number : env.BUILD_NUMBER,
+            git_commit   : env.GIT_COMMIT_SHORT,
+            deployed_at  : env.BUILD_START_TIME,
+            status       : currentBuild.currentResult,
+            access_urls_artifact: "${env.BUILD_URL}artifact/generated/${env.EXAM_ID}-access-urls.txt",
+          ])
+
+          retry(3) {
+            sh """
+              curl -sf \
+                -X POST "${env.ADMIN_WEBHOOK_URL}" \
+                -H "Content-Type: application/json" \
+                -H "X-Webhook-Token: ${WEBHOOK_TOKEN}" \
+                -d '${payload}' \
+                || echo "⚠️  Webhook delivery failed (non-critical)"
+            """
+          }
+        }
+
+        echo "✅ Admin notification sent"
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // STAGE 8: MONITOR (Parallel)
+    // While the exam runs, parallel branches monitor different aspects
+    // ─────────────────────────────────────────────────────────────────────────
+    stage('Monitor') {
+      parallel {
+
+        // Monitor container resource usage
+        stage('Resource Monitor') {
+          steps {
+            echo "📊 [Monitor] Resource usage tracking started"
+            timeout(time: env.EXAM_DURATION.toInteger(), unit: 'MINUTES') {
+              sh """
+                echo "Starting resource monitor for exam ${env.EXAM_ID}..."
+                while true; do
+                  TIMESTAMP=\$(date -Iseconds)
+                  docker stats --no-stream \
+                    --filter "label=com.exam.exam.id=${env.EXAM_ID}" \
+                    --format "{{.Name}},{{.CPUPerc}},{{.MemUsage}}" \
+                    >> ${env.LOGS_DIR}/resource-usage.csv 2>/dev/null || true
+                  sleep 60
+                done
+              """
+            }
+          }
+        }
+
+        // Monitor exam time and trigger cleanup when done
+        stage('Exam Timer') {
+          steps {
+            echo "⏱️  [Timer] Exam duration: ${env.EXAM_DURATION} minutes"
+            script {
+              def durationMinutes = env.EXAM_DURATION.toInteger()
+              def durationSeconds = durationMinutes * 60
+
+              echo "🕐 Waiting ${durationMinutes} minutes for exam to complete..."
+              sleep(time: durationSeconds, unit: 'SECONDS')
+
+              echo "⏰ Exam time expired! Initiating cleanup..."
+              currentBuild.description = "Exam ${env.EXAM_ID} completed"
+            }
+          }
+        }
+
+        // Monitor health and alert on failures
+        stage('Health Monitor') {
+          steps {
+            echo "🏥 [Monitor] Continuous health monitoring started"
+            timeout(time: env.EXAM_DURATION.toInteger(), unit: 'MINUTES') {
+              sh """
+                UNHEALTHY_COUNT=0
+                while true; do
+                  UNHEALTHY=\$(docker ps \
+                    --filter "label=com.exam.exam.id=${env.EXAM_ID}" \
+                    --filter "health=unhealthy" \
+                    --format "{{.Names}}" | wc -l)
+                  
+                  if [ "\$UNHEALTHY" -gt 0 ]; then
+                    UNHEALTHY_COUNT=\$(( UNHEALTHY_COUNT + 1 ))
+                    echo "⚠️  [\$(date -Iseconds)] \$UNHEALTHY unhealthy containers detected"
+                    
+                    # Alert after 3 consecutive unhealthy checks
+                    if [ "\$UNHEALTHY_COUNT" -ge 3 ]; then
+                      curl -sf -X POST "${env.ADMIN_WEBHOOK_URL}" \
+                        -H "Content-Type: application/json" \
+                        -d '{"event":"containers_unhealthy","exam_id":"${env.EXAM_ID}","count":"'\$UNHEALTHY'"}' || true
+                      UNHEALTHY_COUNT=0
+                    fi
+                  else
+                    UNHEALTHY_COUNT=0
+                  fi
+                  sleep 30
+                done
+              """
+            }
+          }
+        }
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // STAGE 9: CLEANUP
+    // Copies submissions, then destroys all student containers for this exam
+    // ─────────────────────────────────────────────────────────────────────────
+    stage('Cleanup') {
+      steps {
+        echo "🧹 [Cleanup] Exam ${env.EXAM_ID} complete — collecting submissions & cleaning up"
+
+        timeout(time: 15, unit: 'MINUTES') {
+          sh """
+            chmod +x scripts/cleanup-containers.sh
+
+            scripts/cleanup-containers.sh \
+              --exam-id     ${env.EXAM_ID} \
+              --submissions ${env.SUBMISSIONS_DIR} \
+              --logs        ${env.LOGS_DIR} \
+              --report      ${env.WORKSPACE}/generated/${env.EXAM_ID}-cleanup-report.txt
+
+            echo "✅ Cleanup complete for exam: ${env.EXAM_ID}"
+          """
+        }
+
+        archiveArtifacts(
+          artifacts: "generated/${env.EXAM_ID}-cleanup-report.txt",
+          fingerprint: true,
+          onlyIfSuccessful: false
+        )
+      }
+    }
+
+  } // end stages
+
+  // ===========================================================================
+  // POST ACTIONS
+  // ===========================================================================
+  post {
+
+    always {
+      echo "📋 [Post] Pipeline completed — build #${env.BUILD_NUMBER}, exam: ${env.EXAM_ID}"
+
+      // Clean up local Docker images to save disk space
+      sh """
+        docker image prune -f --filter "until=24h" || true
+        docker container prune -f || true
+      """
+
+      // Archive all logs
+      archiveArtifacts(
+        artifacts: 'logs/**',
+        allowEmptyArchive: true,
+        fingerprint: false
+      )
+    }
+
+    success {
+      echo "✅ [Post:Success] Exam pipeline completed successfully!"
+
+      script {
+        def duration = sh(
+          script: 'echo $(( $(date +%s) - ${BUILD_START_EPOCH} ))',
+          returnStdout: true
+        ).trim()
+
+        sh """
+          curl -sf -X POST "${env.ADMIN_WEBHOOK_URL}" \
+            -H "Content-Type: application/json" \
+            -H "X-Webhook-Token: ${WEBHOOK_TOKEN}" \
+            -d '{
+              "event"       : "pipeline_success",
+              "exam_id"     : "${env.EXAM_ID}",
+              "build_number": "${env.BUILD_NUMBER}",
+              "duration_sec": ${duration},
+              "build_url"   : "${env.BUILD_URL}"
+            }' || true
+        """
+      }
+    }
+
+    failure {
+      echo "❌ [Post:Failure] Pipeline failed! Triggering emergency cleanup..."
+
+      // Emergency cleanup on failure
+      sh """
+        docker ps -q \
+          --filter "label=com.exam.exam.id=${env.EXAM_ID}" | \
+          xargs -r docker stop || true
+
+        curl -sf -X POST "${env.ADMIN_WEBHOOK_URL}" \
+          -H "Content-Type: application/json" \
+          -H "X-Webhook-Token: ${WEBHOOK_TOKEN}" \
+          -d '{
+            "event"   : "pipeline_failed",
+            "exam_id" : "${env.EXAM_ID}",
+            "build_url": "${env.BUILD_URL}",
+            "console_log": "${env.BUILD_URL}console"
+          }' || true
+      """
+    }
+
+    unstable {
+      echo "⚠️  [Post:Unstable] Pipeline completed with warnings — check health check results"
+    }
+
+    aborted {
+      echo "🛑 [Post:Aborted] Pipeline was aborted — running emergency cleanup"
+      sh """
+        docker ps -q \
+          --filter "label=com.exam.exam.id=${env.EXAM_ID}" | \
+          xargs -r docker stop || true
+      """
+    }
+
+  } // end post
+
+} // end pipeline

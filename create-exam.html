@@ -1,0 +1,2170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Create Exam — ExamCloud</title>
+  <link rel="stylesheet" href="css/global.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+  <style>
+    /* ── PAGE-SPECIFIC STYLES ────────────────────────────── */
+
+    /* Wizard container */
+    .wizard-container {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-6);
+    }
+
+    /* Step tracker horizontal bar */
+    .step-tracker {
+      display: flex;
+      align-items: flex-start;
+      gap: 0;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: var(--space-6) var(--space-8);
+      backdrop-filter: blur(20px);
+    }
+
+    .step-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-2);
+      position: relative;
+    }
+
+    .step-item:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      top: 18px;
+      left: calc(50% + 20px);
+      right: calc(-50% + 20px);
+      height: 2px;
+      background: var(--border);
+      transition: background 0.5s ease;
+      z-index: 1;
+    }
+
+    .step-item.completed:not(:last-child)::after {
+      background: linear-gradient(90deg, var(--cyan), var(--purple-light));
+    }
+
+    .step-num {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      background: var(--bg-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: var(--text-sm);
+      font-weight: 700;
+      color: var(--text-muted);
+      flex-shrink: 0;
+      transition: all 0.4s ease;
+      z-index: 2;
+      position: relative;
+    }
+
+    .step-item.active .step-num {
+      border-color: var(--cyan);
+      color: var(--cyan);
+      box-shadow: 0 0 20px rgba(0,212,255,0.4), 0 0 40px rgba(0,212,255,0.15);
+      background: rgba(0,212,255,0.08);
+    }
+
+    .step-item.completed .step-num {
+      border-color: var(--cyan);
+      background: linear-gradient(135deg, var(--cyan), #0099cc);
+      color: var(--bg-primary);
+      box-shadow: 0 0 15px rgba(0,212,255,0.4);
+    }
+
+    .step-name {
+      font-size: var(--text-xs);
+      font-weight: 600;
+      color: var(--text-muted);
+      text-align: center;
+      transition: color 0.3s ease;
+      white-space: nowrap;
+    }
+
+    .step-item.active .step-name { color: var(--cyan); }
+    .step-item.completed .step-name { color: var(--cyan); opacity: 0.8; }
+
+    .step-desc {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-align: center;
+      opacity: 0.7;
+    }
+
+    /* Step panels */
+    .step-panel {
+      display: none;
+      animation: fadeInUp 0.4s ease forwards;
+    }
+    .step-panel.active { display: block; }
+
+    /* Two-column layout for Step 1 */
+    .step-layout {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: var(--space-6);
+      align-items: start;
+    }
+
+    /* Form card */
+    .form-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      backdrop-filter: blur(20px);
+      overflow: hidden;
+    }
+
+    .form-card-header {
+      padding: var(--space-6);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      background: rgba(0,212,255,0.03);
+    }
+
+    .form-card-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, rgba(0,212,255,0.2), rgba(124,58,237,0.2));
+      border: 1px solid rgba(0,212,255,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    .form-card-title {
+      font-size: var(--text-base);
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .form-card-subtitle {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .form-card-body {
+      padding: var(--space-6);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-5);
+    }
+
+    /* Grid helpers */
+    .form-row {
+      display: grid;
+      gap: var(--space-4);
+    }
+    .form-row-2 { grid-template-columns: 1fr 1fr; }
+    .form-row-3 { grid-template-columns: 1fr 1fr 1fr; }
+
+    /* Language select with badge */
+    .lang-select-wrapper {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+    .lang-select-wrapper .form-select { flex: 1; }
+    .lang-badge-preview {
+      min-width: 90px;
+      text-align: center;
+      transition: all 0.3s ease;
+    }
+
+    /* Number input with +/- */
+    .number-stepper {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      transition: var(--transition-fast);
+    }
+    .number-stepper:focus-within {
+      border-color: var(--cyan);
+      box-shadow: 0 0 0 3px rgba(0,212,255,0.1);
+    }
+    .stepper-btn {
+      width: 36px;
+      height: 40px;
+      background: rgba(255,255,255,0.05);
+      border: none;
+      color: var(--cyan);
+      font-size: 18px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s ease;
+      flex-shrink: 0;
+    }
+    .stepper-btn:hover { background: rgba(0,212,255,0.1); }
+    .stepper-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      font-weight: 600;
+      text-align: center;
+      padding: var(--space-2) var(--space-1);
+      outline: none;
+      width: 60px;
+    }
+
+    /* Difficulty radios */
+    .difficulty-group {
+      display: flex;
+      gap: var(--space-3);
+    }
+    .difficulty-option {
+      flex: 1;
+      position: relative;
+    }
+    .difficulty-option input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .difficulty-label {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-2);
+      padding: var(--space-3) var(--space-4);
+      border: 2px solid var(--border);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all 0.25s ease;
+      font-size: var(--text-sm);
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+    .difficulty-label:hover { border-color: rgba(255,255,255,0.15); color: var(--text-primary); }
+    .difficulty-option input:checked + .difficulty-label.beginner {
+      border-color: var(--green);
+      color: var(--green);
+      background: var(--green-dim);
+      box-shadow: 0 0 15px rgba(16,185,129,0.2);
+    }
+    .difficulty-option input:checked + .difficulty-label.intermediate {
+      border-color: var(--yellow);
+      color: var(--yellow);
+      background: var(--yellow-dim);
+      box-shadow: 0 0 15px rgba(245,158,11,0.2);
+    }
+    .difficulty-option input:checked + .difficulty-label.advanced {
+      border-color: var(--red);
+      color: var(--red);
+      background: var(--red-dim);
+      box-shadow: 0 0 15px rgba(239,68,68,0.2);
+    }
+
+    /* Toggle switch */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-4);
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      transition: var(--transition-fast);
+    }
+    .toggle-row:hover { border-color: rgba(255,255,255,0.1); }
+    .toggle-info { flex: 1; }
+    .toggle-info label {
+      font-size: var(--text-sm);
+      font-weight: 600;
+      color: var(--text-primary);
+      cursor: pointer;
+      display: block;
+    }
+    .toggle-info small {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+    }
+    .toggle-switch {
+      position: relative;
+      width: 48px;
+      height: 26px;
+      flex-shrink: 0;
+    }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .toggle-track::after {
+      content: '';
+      position: absolute;
+      left: 3px;
+      top: 3px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      transition: all 0.3s ease;
+    }
+    .toggle-switch input:checked + .toggle-track {
+      background: rgba(0,212,255,0.2);
+      border-color: var(--cyan);
+    }
+    .toggle-switch input:checked + .toggle-track::after {
+      left: 23px;
+      background: var(--cyan);
+      box-shadow: 0 0 8px rgba(0,212,255,0.6);
+    }
+
+    /* Live preview panel */
+    .preview-panel {
+      position: sticky;
+      top: calc(var(--topbar-height) + var(--space-6));
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-4);
+    }
+
+    .preview-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      overflow: hidden;
+      backdrop-filter: blur(20px);
+      transition: all 0.3s ease;
+    }
+
+    .preview-card-header {
+      padding: var(--space-4) var(--space-5);
+      background: linear-gradient(135deg, rgba(0,212,255,0.08), rgba(124,58,237,0.08));
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .preview-card-body {
+      padding: var(--space-5);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-4);
+    }
+
+    .preview-title {
+      font-size: var(--text-lg);
+      font-weight: 800;
+      color: var(--text-primary);
+      min-height: 1.5em;
+      background: linear-gradient(135deg, var(--cyan), var(--purple-light));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      transition: all 0.3s ease;
+    }
+
+    .preview-meta-row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      font-size: var(--text-xs);
+      color: var(--text-secondary);
+    }
+
+    .preview-meta-row svg { width: 14px; height: 14px; opacity: 0.7; }
+
+    .preview-detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-3);
+    }
+
+    .preview-detail-item {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: var(--space-3);
+    }
+
+    .preview-detail-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 600;
+    }
+
+    .preview-detail-value {
+      font-size: var(--text-sm);
+      font-weight: 700;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      margin-top: 2px;
+    }
+
+    /* Container count visualization */
+    .container-viz {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      max-height: 80px;
+      overflow: hidden;
+    }
+
+    .container-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      background: linear-gradient(135deg, var(--cyan), var(--purple-light));
+      opacity: 0.7;
+      transition: all 0.3s ease;
+      animation: fadeIn 0.3s ease forwards;
+    }
+
+    /* ── STEP 2 STYLES ─────────────────── */
+    .csv-drop-zone {
+      border: 2px dashed rgba(0,212,255,0.3);
+      border-radius: var(--radius-xl);
+      padding: var(--space-10) var(--space-8);
+      text-align: center;
+      background: rgba(0,212,255,0.03);
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+    .csv-drop-zone:hover, .csv-drop-zone.drag-over {
+      border-color: var(--cyan);
+      background: rgba(0,212,255,0.07);
+      box-shadow: 0 0 30px rgba(0,212,255,0.1);
+    }
+    .csv-drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+    .drop-icon {
+      font-size: 48px;
+      margin-bottom: var(--space-3);
+      filter: drop-shadow(0 0 10px rgba(0,212,255,0.4));
+    }
+    .drop-title {
+      font-size: var(--text-lg);
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: var(--space-2);
+    }
+    .drop-sub {
+      font-size: var(--text-sm);
+      color: var(--text-muted);
+    }
+
+    /* Slider styles */
+    .slider-group {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+    }
+    .slider-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .slider-label {
+      font-size: var(--text-sm);
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+    .slider-value {
+      font-size: var(--text-sm);
+      font-weight: 700;
+      color: var(--cyan);
+      font-family: var(--font-mono);
+      background: rgba(0,212,255,0.1);
+      border: 1px solid rgba(0,212,255,0.2);
+      padding: 2px 10px;
+      border-radius: var(--radius-full);
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: var(--radius-full);
+      background: var(--bg-tertiary);
+      outline: none;
+      cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--cyan), #0099cc);
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(0,212,255,0.5);
+      border: 2px solid var(--bg-primary);
+      transition: box-shadow 0.2s ease;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      box-shadow: 0 0 20px rgba(0,212,255,0.8);
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--cyan), #0099cc);
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(0,212,255,0.5);
+      border: 2px solid var(--bg-primary);
+    }
+
+    /* Cost estimate panel */
+    .cost-panel {
+      background: linear-gradient(135deg, rgba(0,212,255,0.06), rgba(124,58,237,0.06));
+      border: 1px solid rgba(0,212,255,0.2);
+      border-radius: var(--radius-xl);
+      padding: var(--space-5);
+    }
+    .cost-header {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      margin-bottom: var(--space-4);
+      font-size: var(--text-sm);
+      font-weight: 700;
+      color: var(--cyan);
+    }
+    .cost-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-2) 0;
+      border-bottom: 1px solid var(--border);
+      font-size: var(--text-sm);
+    }
+    .cost-row:last-child { border-bottom: none; }
+    .cost-key { color: var(--text-secondary); }
+    .cost-val { font-weight: 700; color: var(--text-primary); font-family: var(--font-mono); }
+    .cost-total-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: var(--space-3);
+      padding-top: var(--space-3);
+      border-top: 1px solid rgba(0,212,255,0.2);
+    }
+    .cost-total-label { font-weight: 700; color: var(--text-primary); font-size: var(--text-sm); }
+    .cost-total-val {
+      font-weight: 800;
+      font-family: var(--font-mono);
+      font-size: var(--text-lg);
+      background: linear-gradient(135deg, var(--cyan), var(--purple-light));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* ── STEP 3 STYLES ─────────────────── */
+    .tag-input-container {
+      min-height: 52px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: var(--space-2) var(--space-3);
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      align-items: center;
+      cursor: text;
+      transition: var(--transition-fast);
+    }
+    .tag-input-container:focus-within {
+      border-color: var(--cyan);
+      box-shadow: 0 0 0 3px rgba(0,212,255,0.1);
+    }
+    .pkg-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(0,212,255,0.1);
+      border: 1px solid rgba(0,212,255,0.3);
+      color: var(--cyan);
+      font-size: var(--text-xs);
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: var(--radius-full);
+      font-family: var(--font-mono);
+      animation: scaleIn 0.2s ease;
+    }
+    .pkg-tag .tag-remove {
+      background: none;
+      border: none;
+      color: var(--cyan);
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      padding: 0;
+      opacity: 0.7;
+      transition: opacity 0.15s ease;
+    }
+    .pkg-tag .tag-remove:hover { opacity: 1; }
+    .tag-text-input {
+      flex: 1;
+      min-width: 120px;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      padding: var(--space-1) var(--space-2);
+    }
+    .tag-text-input::placeholder { color: var(--text-muted); }
+
+    /* Code editor enhanced */
+    .code-editor-enhanced {
+      background: #010409;
+      border: 1px solid rgba(0,212,255,0.15);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    .code-editor-bar {
+      background: #0d1224;
+      padding: var(--space-3) var(--space-4);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(0,212,255,0.1);
+    }
+    .editor-dots { display: flex; gap: 6px; }
+    .editor-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+    .editor-dot.red    { background: #ef4444; }
+    .editor-dot.yellow { background: #f59e0b; }
+    .editor-dot.green  { background: #22c55e; }
+    .editor-lang-badge {
+      font-size: var(--text-xs);
+      font-family: var(--font-mono);
+      color: var(--cyan);
+      background: rgba(0,212,255,0.1);
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      border: 1px solid rgba(0,212,255,0.2);
+    }
+    .code-textarea {
+      width: 100%;
+      min-height: 180px;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #7dd3fc;
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      line-height: 1.8;
+      padding: var(--space-4);
+      resize: vertical;
+      caret-color: var(--cyan);
+    }
+
+    /* ── STEP 4 STYLES ─────────────────── */
+    .review-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-6);
+    }
+
+    .review-section {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    .review-section-header {
+      padding: var(--space-4) var(--space-5);
+      background: rgba(255,255,255,0.02);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      font-size: var(--text-sm);
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .review-table {
+      width: 100%;
+    }
+    .review-row {
+      display: flex;
+      align-items: center;
+      padding: var(--space-3) var(--space-5);
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .review-row:last-child { border-bottom: none; }
+    .review-key {
+      width: 140px;
+      font-size: var(--text-xs);
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      flex-shrink: 0;
+    }
+    .review-val {
+      font-size: var(--text-sm);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-weight: 600;
+    }
+
+    /* Mini container cards */
+    .mini-containers {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-3);
+    }
+
+    .mini-container-card {
+      background: rgba(0,212,255,0.05);
+      border: 1px solid rgba(0,212,255,0.15);
+      border-radius: var(--radius-md);
+      padding: var(--space-3);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .mini-container-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--cyan), var(--purple-light));
+    }
+
+    .mini-container-name {
+      font-size: var(--text-xs);
+      font-family: var(--font-mono);
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .mini-container-id {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      margin-top: 2px;
+    }
+
+    .mini-container-status {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      color: var(--green);
+      margin-top: var(--space-2);
+    }
+
+    .status-pulse {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+      animation: pulse-green 2s infinite;
+    }
+
+    /* Docker compose terminal */
+    .compose-terminal {
+      background: #010409;
+      border: 1px solid rgba(0,212,255,0.2);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      margin-top: var(--space-6);
+    }
+    .compose-terminal-header {
+      background: #0d1224;
+      padding: var(--space-3) var(--space-4);
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      border-bottom: 1px solid rgba(0,212,255,0.1);
+    }
+    .compose-terminal-body {
+      padding: var(--space-4);
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+      line-height: 1.9;
+      overflow-x: auto;
+    }
+    .tc-comment { color: #475569; }
+    .tc-key { color: #7dd3fc; }
+    .tc-val { color: #a78bfa; }
+    .tc-str { color: #34d399; }
+    .tc-num { color: #fbbf24; }
+    .tc-cmd { color: var(--cyan); }
+
+    /* Launch button */
+    .launch-section {
+      text-align: center;
+      padding: var(--space-8) 0 var(--space-4);
+    }
+
+    .btn-launch {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-3);
+      padding: var(--space-4) var(--space-12);
+      background: linear-gradient(135deg, var(--green), #059669, #10b981);
+      background-size: 200% 100%;
+      color: white;
+      font-size: var(--text-lg);
+      font-weight: 800;
+      border-radius: var(--radius-xl);
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 0 30px rgba(16,185,129,0.4), 0 8px 25px rgba(16,185,129,0.3);
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+      letter-spacing: 0.02em;
+    }
+
+    .btn-launch::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+      transform: translateX(-100%);
+      transition: transform 0.6s ease;
+    }
+
+    .btn-launch:hover {
+      box-shadow: 0 0 50px rgba(16,185,129,0.6), 0 12px 40px rgba(16,185,129,0.4);
+      transform: translateY(-3px) scale(1.02);
+    }
+
+    .btn-launch:hover::before { transform: translateX(100%); }
+    .btn-launch:active { transform: translateY(-1px) scale(0.99); }
+
+    /* Navigation footer */
+    .wizard-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-5) var(--space-6);
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      backdrop-filter: blur(20px);
+    }
+
+    .wizard-nav-info {
+      font-size: var(--text-sm);
+      color: var(--text-muted);
+    }
+
+    .wizard-nav-info span {
+      color: var(--cyan);
+      font-weight: 700;
+    }
+
+    /* ── LAUNCH OVERLAY ─────────────────── */
+    .launch-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.92);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.4s ease;
+    }
+
+    .launch-overlay.visible {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .launch-modal {
+      width: 100%;
+      max-width: 580px;
+      padding: var(--space-8);
+      background: rgba(13, 18, 36, 0.95);
+      border: 1px solid rgba(0,212,255,0.2);
+      border-radius: var(--radius-xl);
+      box-shadow: 0 0 80px rgba(0,212,255,0.15), 0 0 160px rgba(124,58,237,0.1);
+      animation: scaleIn 0.4s ease forwards;
+    }
+
+    .launch-header {
+      text-align: center;
+      margin-bottom: var(--space-8);
+    }
+
+    .launch-icon-ring {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, rgba(0,212,255,0.2), rgba(124,58,237,0.2));
+      border: 2px solid rgba(0,212,255,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+      margin: 0 auto var(--space-4);
+      animation: glowPulse 2s ease-in-out infinite;
+    }
+
+    .launch-title {
+      font-size: var(--text-2xl);
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--cyan), var(--purple-light));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .launch-subtitle {
+      color: var(--text-muted);
+      font-size: var(--text-sm);
+      margin-top: var(--space-2);
+    }
+
+    .launch-stages {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+      margin-bottom: var(--space-6);
+    }
+
+    .launch-stage {
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+      padding: var(--space-4) var(--space-5);
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      transition: all 0.4s ease;
+    }
+
+    .launch-stage.running {
+      border-color: rgba(0,212,255,0.4);
+      background: rgba(0,212,255,0.05);
+      box-shadow: 0 0 20px rgba(0,212,255,0.08);
+    }
+
+    .launch-stage.done {
+      border-color: rgba(16,185,129,0.4);
+      background: rgba(16,185,129,0.05);
+    }
+
+    .stage-status-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      transition: all 0.4s ease;
+    }
+
+    .launch-stage.running .stage-status-icon {
+      background: rgba(0,212,255,0.1);
+      border-color: rgba(0,212,255,0.3);
+    }
+
+    .launch-stage.done .stage-status-icon {
+      background: rgba(16,185,129,0.15);
+      border-color: rgba(16,185,129,0.4);
+      color: var(--green);
+    }
+
+    .launch-stage-spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(0,212,255,0.2);
+      border-top-color: var(--cyan);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    .stage-text {
+      flex: 1;
+    }
+
+    .stage-name {
+      font-size: var(--text-sm);
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .stage-detail {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      margin-top: 2px;
+    }
+
+    /* Overall progress bar for launch */
+    .launch-progress-bar {
+      height: 8px;
+      background: var(--bg-tertiary);
+      border-radius: var(--radius-full);
+      overflow: hidden;
+      margin-bottom: var(--space-3);
+    }
+
+    .launch-progress-fill {
+      height: 100%;
+      border-radius: var(--radius-full);
+      background: linear-gradient(90deg, var(--cyan), var(--purple-light), var(--green));
+      background-size: 200% 100%;
+      animation: gradientShift 2s ease infinite;
+      transition: width 0.6s ease;
+      width: 0%;
+    }
+
+    .launch-progress-text {
+      text-align: center;
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    /* ── STEP 2 OR divider ─────────────── */
+    .or-divider {
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+      margin: var(--space-5) 0;
+    }
+    .or-line { flex: 1; height: 1px; background: var(--border); }
+    .or-text {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      padding: 4px 12px;
+      border-radius: var(--radius-full);
+    }
+
+    /* Validation error state */
+    .form-input.error,
+    .form-select.error,
+    .form-textarea.error {
+      border-color: var(--red);
+      box-shadow: 0 0 0 3px rgba(239,68,68,0.1);
+    }
+
+    /* Topbar user info */
+    .topbar-user {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+    .user-avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--cyan), var(--purple));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: var(--text-sm);
+      font-weight: 700;
+      color: var(--bg-primary);
+    }
+
+    /* Breadcrumb */
+    .breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+    }
+    .breadcrumb a { color: var(--text-muted); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--cyan); }
+    .breadcrumb .sep { opacity: 0.4; }
+    .breadcrumb .current { color: var(--cyan); font-weight: 600; }
+
+    /* Section full-width card */
+    .full-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      backdrop-filter: blur(20px);
+      overflow: hidden;
+    }
+
+    .full-card-header {
+      padding: var(--space-5) var(--space-6);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      background: rgba(0,212,255,0.03);
+    }
+
+    .full-card-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, rgba(0,212,255,0.2), rgba(124,58,237,0.2));
+      border: 1px solid rgba(0,212,255,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+
+    .full-card-title {
+      font-size: var(--text-base);
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .full-card-body {
+      padding: var(--space-6);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-5);
+    }
+
+    /* Step 2 full layout */
+    .step2-layout {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: var(--space-6);
+      align-items: start;
+    }
+
+    /* Step 3 full layout */
+    .step3-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-6);
+      align-items: start;
+    }
+
+    /* File upload feedback */
+    .upload-feedback {
+      display: none;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-3) var(--space-4);
+      background: rgba(16,185,129,0.08);
+      border: 1px solid rgba(16,185,129,0.3);
+      border-radius: var(--radius-md);
+      margin-top: var(--space-3);
+    }
+    .upload-feedback.visible { display: flex; }
+
+    /* Tooltip hint */
+    .field-hint {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Success finale */
+    .success-finale {
+      display: none;
+      text-align: center;
+      padding: var(--space-10);
+    }
+    .success-finale.visible { display: block; }
+    .success-icon {
+      font-size: 72px;
+      display: block;
+      margin-bottom: var(--space-4);
+      animation: pulseBig 1.5s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body>
+  <div class="admin-layout">
+
+    <!-- ══════════ SIDEBAR ══════════ -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo-icon">🐳</div>
+        <div>
+          <div class="logo-text">Exam<span>Cloud</span></div>
+          <div class="logo-sub">Exam Server Generator</div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="sidebar-section-label">Navigation</div>
+
+        <a href="admin-dashboard.html" class="nav-item">
+          <svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+          </svg>
+          Dashboard
+        </a>
+
+        <a href="create-exam.html" class="nav-item active">
+          <svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+          </svg>
+          Create Exam
+        </a>
+
+        <a href="logs.html" class="nav-item">
+          <svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+          </svg>
+          All Exams
+        </a>
+
+        <a href="monitor.html" class="nav-item">
+          <svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <rect x="2" y="3" width="20" height="14" rx="2" stroke-linecap="round"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 21h8m-4-4v4"/>
+          </svg>
+          Containers
+        </a>
+
+        <a href="pipeline.html" class="nav-item">
+          <svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+          Pipeline
+        </a>
+
+        <a href="monitoring.html" class="nav-item">
+          <svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+          </svg>
+          Monitoring
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="flex items-center gap-3">
+          <div class="user-avatar">A</div>
+          <div>
+            <div style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary)">Admin</div>
+            <div style="font-size:var(--text-xs);color:var(--text-muted)">admin@examcloud.io</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ══════════ MAIN CONTENT ══════════ -->
+    <main class="main-content">
+
+      <!-- TOP BAR -->
+      <header class="topbar">
+        <div>
+          <div class="flex items-center gap-3">
+            <h1 style="font-size:var(--text-xl);font-weight:800;color:var(--text-primary)">Create New Exam</h1>
+            <span class="badge badge-cyan">Wizard</span>
+          </div>
+          <nav class="breadcrumb mt-2" style="margin-top:4px">
+            <a href="admin-dashboard.html">Dashboard</a>
+            <span class="sep">›</span>
+            <a href="logs.html">Exams</a>
+            <span class="sep">›</span>
+            <span class="current">Create</span>
+          </nav>
+        </div>
+
+        <div class="topbar-user">
+          <div class="flex items-center gap-2">
+            <div class="status-dot online"></div>
+            <span style="font-size:var(--text-xs);color:var(--text-muted)">System Online</span>
+          </div>
+          <div style="width:1px;height:24px;background:var(--border)"></div>
+          <button class="btn btn-ghost btn-sm">
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+            </svg>
+            Alerts
+          </button>
+          <div class="user-avatar">A</div>
+        </div>
+      </header>
+
+      <!-- PAGE CONTENT -->
+      <div class="page-content">
+        <div class="wizard-container">
+
+          <!-- ── STEP TRACKER ── -->
+          <div class="step-tracker" id="stepTracker">
+            <div class="step-item active" data-step="1">
+              <div class="step-num" id="stepNum1">1</div>
+              <div class="step-name">Exam Details</div>
+              <div class="step-desc">Basic info & settings</div>
+            </div>
+            <div class="step-item" data-step="2">
+              <div class="step-num" id="stepNum2">2</div>
+              <div class="step-name">Students & Resources</div>
+              <div class="step-desc">Students & compute</div>
+            </div>
+            <div class="step-item" data-step="3">
+              <div class="step-num" id="stepNum3">3</div>
+              <div class="step-name">Environment Config</div>
+              <div class="step-desc">Docker & packages</div>
+            </div>
+            <div class="step-item" data-step="4">
+              <div class="step-num" id="stepNum4">4</div>
+              <div class="step-name">Review & Launch</div>
+              <div class="step-desc">Final confirmation</div>
+            </div>
+          </div>
+
+          <!-- ════════════════════════════════════
+               STEP 1: EXAM DETAILS
+          ════════════════════════════════════ -->
+          <div class="step-panel active" id="stepPanel1">
+            <div class="step-layout">
+
+              <!-- LEFT: Form -->
+              <div class="form-card">
+                <div class="form-card-header">
+                  <div class="form-card-icon">📋</div>
+                  <div>
+                    <div class="form-card-title">Exam Details</div>
+                    <div class="form-card-subtitle">Configure the basic exam settings</div>
+                  </div>
+                </div>
+                <div class="form-card-body">
+
+                  <!-- Exam Name -->
+                  <div class="form-group">
+                    <label class="form-label" for="examName">
+                      Exam Name <span class="required">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      id="examName"
+                      class="form-input"
+                      placeholder="e.g. Python Lab Test — Week 5"
+                      maxlength="100"
+                    />
+                    <span class="form-error hidden" id="examNameError">Exam name is required.</span>
+                  </div>
+
+                  <!-- Description -->
+                  <div class="form-group">
+                    <label class="form-label" for="examDesc">Description</label>
+                    <textarea
+                      id="examDesc"
+                      class="form-textarea"
+                      placeholder="Brief description of this exam. Students will see this before they begin..."
+                      rows="3"
+                    ></textarea>
+                  </div>
+
+                  <!-- Programming Language -->
+                  <div class="form-group">
+                    <label class="form-label" for="examLang">Programming Language <span class="required">*</span></label>
+                    <div class="lang-select-wrapper">
+                      <select id="examLang" class="form-select">
+                        <option value="">— Select language —</option>
+                        <option value="python" data-badge="badge-cyan" data-icon="🐍">Python 3.11</option>
+                        <option value="java" data-badge="badge-orange" data-icon="☕">Java 17</option>
+                        <option value="cpp" data-badge="badge-purple" data-icon="⚙️">C++ (GCC)</option>
+                        <option value="nodejs" data-badge="badge-green" data-icon="🟢">Node.js 18</option>
+                        <option value="ruby" data-badge="badge-red" data-icon="💎">Ruby</option>
+                        <option value="go" data-badge="badge-cyan" data-icon="🔵">Go</option>
+                      </select>
+                      <div id="langBadgePreview" class="lang-badge-preview">
+                        <span class="badge badge-ghost">— none —</span>
+                      </div>
+                    </div>
+                    <span class="form-error hidden" id="examLangError">Please select a language.</span>
+                  </div>
+
+                  <!-- Duration -->
+                  <div class="form-group">
+                    <label class="form-label">Exam Duration <span class="required">*</span></label>
+                    <div class="form-row form-row-2">
+                      <div>
+                        <input type="number" id="durationHours" class="form-input" placeholder="Hours" min="0" max="12" value="2" />
+                        <span class="field-hint">Hours (0–12)</span>
+                      </div>
+                      <div>
+                        <input type="number" id="durationMins" class="form-input" placeholder="Minutes" min="0" max="59" value="30" />
+                        <span class="field-hint">Minutes (0–59)</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Max Students -->
+                  <div class="form-group">
+                    <label class="form-label" for="maxStudents">Max Students <span class="required">*</span></label>
+                    <div class="number-stepper">
+                      <button type="button" class="stepper-btn" id="studentsDown">−</button>
+                      <input type="number" class="stepper-input" id="maxStudents" value="45" min="1" max="200" />
+                      <button type="button" class="stepper-btn" id="studentsUp">+</button>
+                    </div>
+                    <span class="field-hint">Range: 1 – 200 students</span>
+                  </div>
+
+                  <!-- Scheduled Start -->
+                  <div class="form-group">
+                    <label class="form-label" for="schedStart">Scheduled Start</label>
+                    <input type="datetime-local" id="schedStart" class="form-input" />
+                  </div>
+
+                  <!-- Difficulty Level -->
+                  <div class="form-group">
+                    <label class="form-label">Difficulty Level <span class="required">*</span></label>
+                    <div class="difficulty-group">
+                      <div class="difficulty-option">
+                        <input type="radio" name="difficulty" id="diffBeginner" value="beginner" checked />
+                        <label class="difficulty-label beginner" for="diffBeginner">
+                          <span>🟢</span> Beginner
+                        </label>
+                      </div>
+                      <div class="difficulty-option">
+                        <input type="radio" name="difficulty" id="diffIntermediate" value="intermediate" />
+                        <label class="difficulty-label intermediate" for="diffIntermediate">
+                          <span>🟡</span> Intermediate
+                        </label>
+                      </div>
+                      <div class="difficulty-option">
+                        <input type="radio" name="difficulty" id="diffAdvanced" value="advanced" />
+                        <label class="difficulty-label advanced" for="diffAdvanced">
+                          <span>🔴</span> Advanced
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Toggles -->
+                  <div class="form-group">
+                    <label class="form-label">Options</label>
+                    <div class="flex flex-col gap-3">
+                      <div class="toggle-row">
+                        <div class="toggle-info">
+                          <label for="allowUpload">Allow File Upload</label>
+                          <small>Students can submit files during the exam</small>
+                        </div>
+                        <label class="toggle-switch">
+                          <input type="checkbox" id="allowUpload" />
+                          <span class="toggle-track"></span>
+                        </label>
+                      </div>
+                      <div class="toggle-row">
+                        <div class="toggle-info">
+                          <label for="showSolution">Show Solution After</label>
+                          <small>Reveal solution when exam time expires</small>
+                        </div>
+                        <label class="toggle-switch">
+                          <input type="checkbox" id="showSolution" checked />
+                          <span class="toggle-track"></span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              <!-- RIGHT: Live Preview -->
+              <div class="preview-panel">
+
+                <div class="preview-card card-glow">
+                  <div class="preview-card-header">
+                    <div>
+                      <div style="font-size:var(--text-xs);font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;">Live Preview</div>
+                      <div style="font-size:var(--text-xs);color:var(--cyan);margin-top:2px;">Updates in real time</div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <div class="status-dot online"></div>
+                    </div>
+                  </div>
+
+                  <div class="preview-card-body">
+                    <div class="preview-title" id="prevTitle">Your Exam Title…</div>
+
+                    <div class="preview-meta-row">
+                      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round"/></svg>
+                      <span id="prevDuration">— h — min</span>
+                    </div>
+
+                    <div class="preview-meta-row">
+                      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                      <span id="prevStudents">45 students</span>
+                    </div>
+
+                    <div class="preview-meta-row">
+                      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2h-2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                      <span id="prevLang">— language —</span>
+                    </div>
+
+                    <div class="preview-detail-grid">
+                      <div class="preview-detail-item">
+                        <div class="preview-detail-label">Difficulty</div>
+                        <div class="preview-detail-value" id="prevDifficulty">Beginner</div>
+                      </div>
+                      <div class="preview-detail-item">
+                        <div class="preview-detail-label">Start</div>
+                        <div class="preview-detail-value" id="prevStart">Not set</div>
+                      </div>
+                      <div class="preview-detail-item">
+                        <div class="preview-detail-label">File Upload</div>
+                        <div class="preview-detail-value" id="prevUpload">Disabled</div>
+                      </div>
+                      <div class="preview-detail-item">
+                        <div class="preview-detail-label">Show Sol.</div>
+                        <div class="preview-detail-value" id="prevSolution">Enabled</div>
+                      </div>
+                    </div>
+
+                    <!-- Container count visualization -->
+                    <div>
+                      <div style="font-size:var(--text-xs);color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:var(--space-2)">
+                        Container Preview
+                      </div>
+                      <div class="container-viz" id="containerViz"></div>
+                      <div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:var(--space-2)">
+                        <span id="containerCount">45</span> containers will be created
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+
+                <!-- Info alert -->
+                <div class="alert alert-info" style="font-size:var(--text-xs);">
+                  <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01" stroke-linecap="round"/></svg>
+                  Each student gets a dedicated Docker container with isolated resources.
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+          <!-- ════════════════════════════════════
+               STEP 2: STUDENTS & RESOURCES
+          ════════════════════════════════════ -->
+          <div class="step-panel" id="stepPanel2">
+            <div class="step2-layout">
+
+              <!-- LEFT: Student upload + sliders -->
+              <div class="flex flex-col gap-6">
+
+                <!-- CSV Upload -->
+                <div class="form-card">
+                  <div class="form-card-header">
+                    <div class="form-card-icon">👥</div>
+                    <div>
+                      <div class="form-card-title">Student Roster</div>
+                      <div class="form-card-subtitle">Upload a CSV or enter count manually</div>
+                    </div>
+                  </div>
+                  <div class="form-card-body">
+
+                    <div class="csv-drop-zone" id="csvDropZone">
+                      <input type="file" id="csvFileInput" accept=".csv" />
+                      <div class="drop-icon">📂</div>
+                      <div class="drop-title">Drop your CSV file here</div>
+                      <div class="drop-sub">or click to browse — supports .csv format</div>
+                      <div style="margin-top:var(--space-4)">
+                        <span class="badge badge-ghost">name, email, student_id</span>
+                      </div>
+                    </div>
+
+                    <div class="upload-feedback" id="uploadFeedback">
+                      <span style="font-size:20px;">✅</span>
+                      <div>
+                        <div style="font-size:var(--text-sm);font-weight:600;color:var(--green)">File uploaded</div>
+                        <div id="uploadFileName" style="font-size:var(--text-xs);color:var(--text-muted);font-family:var(--font-mono)"></div>
+                      </div>
+                    </div>
+
+                    <div class="or-divider">
+                      <div class="or-line"></div>
+                      <div class="or-text">or enter manually</div>
+                      <div class="or-line"></div>
+                    </div>
+
+                    <div class="form-group">
+                      <label class="form-label" for="manualCount">Number of Students</label>
+                      <div class="number-stepper">
+                        <button type="button" class="stepper-btn" id="manualDown">−</button>
+                        <input type="number" class="stepper-input" id="manualCount" value="45" min="1" max="200" />
+                        <button type="button" class="stepper-btn" id="manualUp">+</button>
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+
+                <!-- Resource sliders -->
+                <div class="form-card">
+                  <div class="form-card-header">
+                    <div class="form-card-icon">⚡</div>
+                    <div>
+                      <div class="form-card-title">Container Resources</div>
+                      <div class="form-card-subtitle">Per-container resource limits</div>
+                    </div>
+                  </div>
+                  <div class="form-card-body">
+
+                    <!-- RAM -->
+                    <div class="slider-group">
+                      <div class="slider-header">
+                        <span class="slider-label">🧠 RAM per Container</span>
+                        <span class="slider-value" id="ramVal">1 GB</span>
+                      </div>
+                      <input type="range" id="ramSlider" min="512" max="4096" step="512" value="1024" />
+                      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);">
+                        <span>512 MB</span><span>4 GB</span>
+                      </div>
+                    </div>
+
+                    <!-- CPU -->
+                    <div class="slider-group">
+                      <div class="slider-header">
+                        <span class="slider-label">⚙️ CPU Limit (cores)</span>
+                        <span class="slider-value" id="cpuVal">1.0</span>
+                      </div>
+                      <input type="range" id="cpuSlider" min="1" max="8" step="1" value="2" />
+                      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);">
+                        <span>0.5 cores</span><span>4 cores</span>
+                      </div>
+                    </div>
+
+                    <!-- Storage -->
+                    <div class="slider-group">
+                      <div class="slider-header">
+                        <span class="slider-label">💾 Storage</span>
+                        <span class="slider-value" id="storageVal">5 GB</span>
+                      </div>
+                      <input type="range" id="storageSlider" min="1" max="20" step="1" value="5" />
+                      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);">
+                        <span>1 GB</span><span>20 GB</span>
+                      </div>
+                    </div>
+
+                    <!-- Network toggle -->
+                    <div class="toggle-row">
+                      <div class="toggle-info">
+                        <label for="networkToggle">🌐 Network Access</label>
+                        <small>Allow containers to access the internet</small>
+                      </div>
+                      <label class="toggle-switch">
+                        <input type="checkbox" id="networkToggle" />
+                        <span class="toggle-track"></span>
+                      </label>
+                    </div>
+
+                  </div>
+                </div>
+              </div>
+
+              <!-- RIGHT: Cost estimate -->
+              <div class="preview-panel">
+                <div class="cost-panel">
+                  <div class="cost-header">
+                    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 11h.01M12 11h.01M15 11h.01M4 19h16a2 2 0 002-2V7a2 2 0 00-2-2H4a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                    Estimated Resources
+                  </div>
+
+                  <div class="cost-row">
+                    <span class="cost-key">Containers</span>
+                    <span class="cost-val" id="costContainers">45</span>
+                  </div>
+                  <div class="cost-row">
+                    <span class="cost-key">RAM each</span>
+                    <span class="cost-val" id="costRam">1 GB</span>
+                  </div>
+                  <div class="cost-row">
+                    <span class="cost-key">CPU each</span>
+                    <span class="cost-val" id="costCpu">1.0 cores</span>
+                  </div>
+                  <div class="cost-row">
+                    <span class="cost-key">Storage each</span>
+                    <span class="cost-val" id="costStorage">5 GB</span>
+                  </div>
+                  <div class="cost-row">
+                    <span class="cost-key">Network</span>
+                    <span class="cost-val" id="costNetwork">Disabled</span>
+                  </div>
+
+                  <div class="cost-total-row">
+                    <span class="cost-total-label">Total RAM</span>
+                    <span class="cost-total-val" id="costTotalRam">45 GB</span>
+                  </div>
+                  <div style="margin-top:var(--space-2)">
+                    <div class="cost-total-row" style="border-top:none;margin-top:0;padding-top:0;">
+                      <span class="cost-total-label">Total Storage</span>
+                      <span class="cost-total-val" id="costTotalStorage">225 GB</span>
+                    </div>
+                  </div>
+
+                  <div style="margin-top:var(--space-4);padding:var(--space-3);background:rgba(255,255,255,0.03);border-radius:var(--radius-md);font-size:var(--text-xs);color:var(--text-muted);">
+                    💡 Tip: Keep RAM at 1–2 GB per student for best performance. Use CPU limits to prevent resource abuse.
+                  </div>
+                </div>
+
+                <!-- Resource summary visual -->
+                <div class="preview-card" style="padding:var(--space-5);">
+                  <div style="font-size:var(--text-xs);font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:var(--space-4);">Resource Breakdown</div>
+
+                  <div class="flex flex-col gap-3">
+                    <div class="mini-stat">
+                      <label>RAM</label>
+                      <div class="mini-bar"><div class="mini-fill" id="ramBar" style="width:25%;background:var(--cyan)"></div></div>
+                      <div class="mini-value" id="ramBarVal">1 GB</div>
+                    </div>
+                    <div class="mini-stat">
+                      <label>CPU</label>
+                      <div class="mini-bar"><div class="mini-fill" id="cpuBar" style="width:25%;background:var(--purple-light)"></div></div>
+                      <div class="mini-value" id="cpuBarVal">1.0</div>
+                    </div>
+                    <div class="mini-stat">
+                      <label>SSD</label>
+                      <div class="mini-bar"><div class="mini-fill" id="storageBar" style="width:25%;background:var(--green)"></div></div>
+                      <div class="mini-value" id="storageBarVal">5 GB</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ════════════════════════════════════
+               STEP 3: ENVIRONMENT CONFIG
+          ════════════════════════════════════ -->
+          <div class="step-panel" id="stepPanel3">
+            <div class="step3-layout">
+
+              <!-- LEFT column -->
+              <div class="flex flex-col gap-5">
+
+                <!-- Base image -->
+                <div class="form-card">
+                  <div class="form-card-header">
+                    <div class="form-card-icon">🐋</div>
+                    <div>
+                      <div class="form-card-title">Docker Image</div>
+                      <div class="form-card-subtitle">Select the base container image</div>
+                    </div>
+                  </div>
+                  <div class="form-card-body">
+                    <div class="form-group">
+                      <label class="form-label" for="baseImage">Base Image <span class="required">*</span></label>
+                      <select id="baseImage" class="form-select">
+                        <option value="python:3.11-slim">🐍 python:3.11-slim</option>
+                        <option value="openjdk:17">☕ openjdk:17</option>
+                        <option value="gcc:latest">⚙️ gcc:latest</option>
+                        <option value="node:18-alpine">🟢 node:18-alpine</option>
+                        <option value="ruby:3.2-slim">💎 ruby:3.2-slim</option>
+                        <option value="golang:1.21-alpine">🔵 golang:1.21-alpine</option>
+                      </select>
+                    </div>
+
+                    <div class="form-group">
+                      <label class="form-label" for="githubRepo">
+                        GitHub Repo URL
+                        <span class="badge badge-ghost" style="margin-left:6px;font-size:9px;">Optional</span>
+                      </label>
+                      <div class="input-group">
+                        <span class="input-icon">🔗</span>
+                        <input type="url" id="githubRepo" class="form-input" placeholder="https://github.com/org/starter-code" />
+                      </div>
+                      <span class="field-hint">Pull starter code from this repository</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Additional packages -->
+                <div class="form-card">
+                  <div class="form-card-header">
+                    <div class="form-card-icon">📦</div>
+                    <div>
+                      <div class="form-card-title">Additional Packages</div>
+                      <div class="form-card-subtitle">Type package name and press Enter</div>
+                    </div>
+                  </div>
+                  <div class="form-card-body">
+                    <div class="form-group">
+                      <label class="form-label">Packages</label>
+                      <div class="tag-input-container" id="tagContainer">
+                        <span class="pkg-tag">
+                          numpy
+                          <button type="button" class="tag-remove" data-pkg="numpy">×</button>
+                        </span>
+                        <span class="pkg-tag">
+                          pandas
+                          <button type="button" class="tag-remove" data-pkg="pandas">×</button>
+                        </span>
+                        <input type="text" class="tag-text-input" id="pkgInput" placeholder="e.g. matplotlib, scipy…" />
+                      </div>
+                      <span class="field-hint">Press Enter or comma to add · Click × to remove</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Exam Instructions -->
+                <div class="form-card">
+                  <div class="form-card-header">
+                    <div class="form-card-icon">📝</div>
+                    <div>
+                      <div class="form-card-title">Exam Questions & Instructions</div>
+                      <div class="form-card-subtitle">Write the coding questions, guidelines, and rules here. These will render directly in the student's portal workspace.</div>
+                    </div>
+                  </div>
+                  <div class="form-card-body">
+                    <textarea
+                      class="form-textarea"
+                      id="examInstructions"
+                      rows="6"
+                      placeholder="Welcome to the examination. Please read the questions carefully and implement your solutions.
+
+## Coding Questions:
+Q1. Implement a function to find the length of the longest palindromic substring.
+Q2. Write a recursive function to resolve all permutations of a string.
+
+## Submission Guidelines:
+- Ensure your code compiles before submitting.
+- Avoid using unauthorized third-party modules."
+                    ></textarea>
+                  </div>
+                </div>
+              </div>
+
+              <!-- RIGHT column -->
+              <div class="flex flex-col gap-5">
+
+                <!-- Starter code editor -->
+                <div class="form-card">
+                  <div class="form-card-header">
+                    <div class="form-card-icon">💻</div>
+                    <div>
+                      <div class="form-card-title">Starter Code</div>
+                      <div class="form-card-subtitle">Code template provided to students</div>
+                    </div>
+                  </div>
+                  <div class="form-card-body" style="padding:0;">
+                    <div class="code-editor-enhanced">
+                      <div class="code-editor-bar">
+                        <div class="editor-dots">
+                          <div class="editor-dot red"></div>
+                          <div class="editor-dot yellow"></div>
+                          <div class="editor-dot green"></div>
+                        </div>
+                        <span style="flex:1;font-size:var(--text-xs);color:var(--text-muted);text-align:center;">starter.py</span>
+                        <span class="editor-lang-badge" id="editorLangBadge">Python</span>
+                      </div>
+                      <textarea class="code-textarea" id="starterCode" spellcheck="false"># ExamCloud Starter Template
+# Student: [NAME] | ID: [STUDENT_ID]
+# ─────────────────────────────
+
+def solve():
+    """
+    Write your solution below.
+    """
+    pass
+
+if __name__ == "__main__":
+    solve()
+</textarea>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Pre-run script -->
+                <div class="form-card">
+                  <div class="form-card-header">
+                    <div class="form-card-icon">⚡</div>
+                    <div>
+                      <div class="form-card-title">Pre-run Script</div>
+                      <div class="form-card-subtitle">Commands run before exam starts</div>
+                    </div>
+                  </div>
+                  <div class="form-card-body" style="padding:0;">
+                    <div class="code-editor-enhanced">
+                      <div class="code-editor-bar">
+                        <div class="editor-dots">
+                          <div class="editor-dot red"></div>
+                          <div class="editor-dot yellow"></div>
+                          <div class="editor-dot green"></div>
+                        </div>
+                        <span style="flex:1;font-size:var(--text-xs);color:var(--text-muted);text-align:center;">setup.sh</span>
+                        <span class="editor-lang-badge">bash</span>
+                      </div>
+                      <textarea class="code-textarea" id="preRunScript" spellcheck="false">#!/bin/bash
+# Pre-exam setup script
+
+# Install additional packages
+pip install -q numpy pandas matplotlib
+
+# Set environment variables
+export EXAM_MODE=1
+export PYTHONDONTWRITEBYTECODE=1
+
+# Create workspace directory
+mkdir -p /workspace
+echo "Environment ready ✓"
+</textarea>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+          <!-- ════════════════════════════════════
+               STEP 4: REVIEW & LAUNCH
+          ════════════════════════════════════ -->
+          <div class="step-panel" id="stepPanel4">
+            <div class="flex flex-col gap-6">
+
+              <div class="review-grid">
+                <!-- Exam Config summary -->
+                <div class="review-section">
+                  <div class="review-section-header">
+                    <span>📋</span> Exam Configuration
+                  </div>
+                  <div class="review-table">
+                    <div class="review-row"><span class="review-key">Name</span><span class="review-val" id="rev-name">—</span></div>
+                    <div class="review-row"><span class="review-key">Language</span><span class="review-val" id="rev-lang">—</span></div>
+                    <div class="review-row"><span class="review-key">Duration</span><span class="review-val" id="rev-duration">—</span></div>
+                    <div class="review-row"><span class="review-key">Students</span><span class="review-val" id="rev-students">—</span></div>
+                    <div class="review-row"><span class="review-key">Difficulty</span><span class="review-val" id="rev-difficulty">—</span></div>
+                    <div class="review-row"><span class="review-key">Start</span><span class="review-val" id="rev-start">Not scheduled</span></div>
+                    <div class="review-row"><span class="review-key">File Upload</span><span class="review-val" id="rev-upload">—</span></div>
+                    <div class="review-row"><span class="review-key">Show Solution</span><span class="review-val" id="rev-solution">—</span></div>
+                  </div>
+                </div>
+
+                <!-- Resource summary -->
+                <div class="review-section">
+                  <div class="review-section-header">
+                    <span>⚡</span> Resource Allocation
+                  </div>
+                  <div class="review-table">
+                    <div class="review-row"><span class="review-key">Base Image</span><span class="review-val" id="rev-image">—</span></div>
+                    <div class="review-row"><span class="review-key">RAM / Container</span><span class="review-val" id="rev-ram">—</span></div>
+                    <div class="review-row"><span class="review-key">CPU / Container</span><span class="review-val" id="rev-cpu">—</span></div>
+                    <div class="review-row"><span class="review-key">Storage</span><span class="review-val" id="rev-storage">—</span></div>
+                    <div class="review-row"><span class="review-key">Network</span><span class="review-val" id="rev-network">—</span></div>
+                    <div class="review-row"><span class="review-key">Total RAM</span><span class="review-val" id="rev-totalram">—</span></div>
+                    <div class="review-row"><span class="review-key">Total Storage</span><span class="review-val" id="rev-totalstorage">—</span></div>
+                    <div class="review-row"><span class="review-key">Packages</span><span class="review-val" id="rev-packages">—</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Container preview section -->
+              <div class="full-card">
+                <div class="full-card-header">
+                  <div class="full-card-icon">🐳</div>
+                  <div class="full-card-title">Container Preview — Sample Roster</div>
+                  <span class="badge badge-cyan" style="margin-left:auto;">45 total</span>
+                </div>
+                <div style="padding:var(--space-6);">
+                  <div class="mini-containers" id="miniContainers">
+                    <!-- injected by JS -->
+                  </div>
+                  <div style="text-align:center;margin-top:var(--space-4);font-size:var(--text-xs);color:var(--text-muted);">
+                    Showing 3 of <span id="containerTotalCount">45</span> containers · All containers will be created on launch
+                  </div>
+                </div>
+              </div>
+
+              <!-- Docker compose terminal preview -->
+              <div class="compose-terminal">
+                <div class="compose-terminal-header">
+                  <div style="display:flex;gap:6px;">
+                    <div class="terminal-dot red"></div>
+                    <div class="terminal-dot yellow"></div>
+                    <div class="terminal-dot green"></div>
+                  </div>
+                  <span class="terminal-title">docker-compose.yml — Generated Preview</span>
+                  <button class="btn btn-ghost btn-sm" onclick="copyComposeYaml()" style="margin-left:auto;">
+                    📋 Copy
+                  </button>
+                </div>
+                <div class="compose-terminal-body" id="composePreview">
+                  <!-- injected by JS -->
+                </div>
+              </div>
+
+              <!-- Launch button -->
+              <div class="launch-section">
+                <div style="margin-bottom:var(--space-4);">
+                  <div style="font-size:var(--text-sm);color:var(--text-secondary);margin-bottom:var(--space-2);">
+                    Everything looks good? Trigger the Jenkins pipeline and launch your exam!
+                  </div>
+                  <div class="flex items-center justify-center gap-6" style="font-size:var(--text-xs);color:var(--text-muted);">
+                    <span>✅ Configuration validated</span>
+                    <span>✅ Resources calculated</span>
+                    <span>✅ Environment defined</span>
+                  </div>
+                </div>
+
+                <button class="btn-launch" id="launchBtn" onclick="triggerLaunch()">
+                  🚀 Launch Exam
+                </button>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- ── WIZARD NAV FOOTER ── -->
+          <div class="wizard-nav" id="wizardNav">
+            <div>
+              <button class="btn btn-ghost" id="btnBack" onclick="goBack()" style="display:none;">
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+                Back
+              </button>
+            </div>
+            <div class="wizard-nav-info">
+              Step <span id="navCurrentStep">1</span> of <span>4</span>
+            </div>
+            <button class="btn btn-primary" id="btnNext" onclick="goNext()">
+              Next Step
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       LAUNCH OVERLAY
+  ══════════════════════════════════════ -->
+  <div class="launch-overlay" id="launchOverlay">
+    <div class="launch-modal">
+
+      <div class="launch-header">
+        <div class="launch-icon-ring">🐳</div>
+        <div class="launch-title">Launching Exam Environment</div>
+        <div class="launch-subtitle">Hang tight — spinning up containers…</div>
+      </div>
+
+      <!-- Overall progress -->
+      <div class="launch-progress-bar" style="margin-bottom:var(--space-2);">
+        <div class="launch-progress-fill" id="launchProgressFill"></div>
+      </div>
+      <div class="launch-progress-text" id="launchProgressText">0% — Initialising…</div>
+
+      <div style="height:var(--space-6);"></div>
+
+      <!-- Stages -->
+      <div class="launch-stages" id="launchStages">
+
+        <div class="launch-stage" id="stage-0">
+          <div class="stage-status-icon"><span>⏳</span></div>
+          <div class="stage-text">
+            <div class="stage-name">Triggering Jenkins Pipeline</div>
+            <div class="stage-detail">POST /api/jenkins/trigger</div>
+          </div>
+        </div>
+
+        <div class="launch-stage" id="stage-1">
+          <div class="stage-status-icon"><span>⏳</span></div>
+          <div class="stage-text">
+            <div class="stage-name">Pulling Docker Images</div>
+            <div class="stage-detail" id="stageImageDetail">python:3.11-slim</div>
+          </div>
+        </div>
+
+        <div class="launch-stage" id="stage-2">
+          <div class="stage-status-icon"><span>⏳</span></div>
+          <div class="stage-text">
+            <div class="stage-name" id="stageContainerName">Creating 45 Containers</div>
+            <div class="stage-detail">docker-compose up --scale student=45</div>
+          </div>
+        </div>
+
+        <div class="launch-stage" id="stage-3">
+          <div class="stage-status-icon"><span>⏳</span></div>
+          <div class="stage-text">
+            <div class="stage-name">Configuring Networking</div>
+            <div class="stage-detail">Setting up isolated virtual network bridge</div>
+          </div>
+        </div>
+
+        <div class="launch-stage" id="stage-4">
+          <div class="stage-status-icon"><span>⏳</span></div>
+          <div class="stage-text">
+            <div class="stage-name">Health Check</div>
+            <div class="stage-detail">Verifying all containers are responsive</div>
+          </div>
+        </div>
+
+        <div class="launch-stage" id="stage-5">
+          <div class="stage-status-icon"><span>⏳</span></div>
+          <div class="stage-text">
+            <div class="stage-name">✅ All Containers Ready!</div>
+            <div class="stage-detail">Redirecting to monitor dashboard…</div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="js/create-exam.js"></script>
+</body>
+</html>

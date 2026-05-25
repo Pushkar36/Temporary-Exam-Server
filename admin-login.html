@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Login — Temporary Exam Server Generator</title>
+  <link rel="stylesheet" href="css/global.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+  <style>
+    /* ── PAGE LAYOUT ────────────────────────────────────────── */
+    body {
+      min-height: 100vh;
+      overflow: hidden;
+      display: flex;
+    }
+
+    /* ── LEFT PANEL ─────────────────────────────────────────── */
+    .left-panel {
+      width: 40%;
+      min-height: 100vh;
+      background: linear-gradient(145deg, #020715 0%, #060d20 40%, #0a1230 70%, #0d1840 100%);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      padding: 3rem;
+      flex-shrink: 0;
+    }
+
+    .left-panel::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,212,255,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,212,255,0.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+
+    .panel-orb-1 {
+      position: absolute;
+      width: 380px;
+      height: 380px;
+      top: -80px;
+      left: -100px;
+      background: radial-gradient(circle, rgba(0, 212, 255, 0.18), transparent 65%);
+      filter: blur(60px);
+      pointer-events: none;
+    }
+
+    .panel-orb-2 {
+      position: absolute;
+      width: 320px;
+      height: 320px;
+      bottom: 40px;
+      right: -60px;
+      background: radial-gradient(circle, rgba(124, 58, 237, 0.22), transparent 65%);
+      filter: blur(60px);
+      pointer-events: none;
+    }
+
+    .panel-orb-3 {
+      position: absolute;
+      width: 200px;
+      height: 200px;
+      bottom: 40%;
+      left: 30%;
+      background: radial-gradient(circle, rgba(0, 212, 255, 0.1), transparent 65%);
+      filter: blur(40px);
+      pointer-events: none;
+    }
+
+    .panel-content {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    /* Logo */
+    .panel-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.875rem;
+      margin-bottom: 3.5rem;
+      animation: fadeInDown 0.5s ease forwards;
+    }
+
+    .logo-icon-wrap {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, #00d4ff, #7c3aed);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      box-shadow: 0 0 30px rgba(0,212,255,0.35);
+      animation: glowPulse 3s ease-in-out infinite;
+    }
+
+    .logo-text-wrap .logo-main {
+      font-size: 1rem;
+      font-weight: 800;
+      color: #f1f5f9;
+      line-height: 1.2;
+    }
+
+    .logo-text-wrap .logo-main span {
+      color: #00d4ff;
+    }
+
+    .logo-text-wrap .logo-sub {
+      font-size: 0.7rem;
+      color: #475569;
+      font-weight: 500;
+    }
+
+    /* Tagline */
+    .panel-tagline {
+      margin-bottom: 2.5rem;
+      animation: fadeInLeft 0.6s ease 0.1s forwards;
+      opacity: 0;
+    }
+
+    .panel-tagline h1 {
+      font-size: 2rem;
+      font-weight: 900;
+      line-height: 1.15;
+      color: #f1f5f9;
+      margin-bottom: 0.75rem;
+    }
+
+    .panel-tagline h1 .gradient-word {
+      background: linear-gradient(135deg, #00d4ff, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .panel-tagline p {
+      font-size: 0.875rem;
+      color: #64748b;
+      line-height: 1.7;
+      max-width: 280px;
+    }
+
+    /* Feature list */
+    .feature-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      flex: 1;
+      animation: fadeInLeft 0.6s ease 0.2s forwards;
+      opacity: 0;
+    }
+
+    .feature-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.875rem;
+      padding: 1rem 1.125rem;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+      transition: all 0.25s ease;
+    }
+
+    .feature-item:hover {
+      background: rgba(0,212,255,0.05);
+      border-color: rgba(0,212,255,0.2);
+      transform: translateX(4px);
+    }
+
+    .feature-check {
+      width: 28px;
+      height: 28px;
+      background: rgba(16,185,129,0.15);
+      border: 1px solid rgba(16,185,129,0.3);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .feature-text .feature-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #f1f5f9;
+      margin-bottom: 0.2rem;
+    }
+
+    .feature-text .feature-desc {
+      font-size: 0.75rem;
+      color: #64748b;
+      line-height: 1.5;
+    }
+
+    /* Version badge */
+    .version-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(124,58,237,0.12);
+      border: 1px solid rgba(124,58,237,0.3);
+      color: #a78bfa;
+      font-size: 0.7rem;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      padding: 0.375rem 0.875rem;
+      border-radius: 9999px;
+      letter-spacing: 0.05em;
+      margin-top: 2rem;
+      animation: fadeInLeft 0.6s ease 0.3s forwards;
+      opacity: 0;
+    }
+
+    .version-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 6px #10b981;
+      animation: pulse 2s infinite;
+    }
+
+    /* ── RIGHT PANEL ─────────────────────────────────────────── */
+    .right-panel {
+      flex: 1;
+      min-height: 100vh;
+      background: #080c18;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .right-bg-orb-1 {
+      position: absolute;
+      width: 500px;
+      height: 500px;
+      top: -150px;
+      right: -150px;
+      background: radial-gradient(circle, rgba(124,58,237,0.1), transparent 65%);
+      filter: blur(80px);
+      pointer-events: none;
+    }
+
+    .right-bg-orb-2 {
+      position: absolute;
+      width: 400px;
+      height: 400px;
+      bottom: -100px;
+      left: -100px;
+      background: radial-gradient(circle, rgba(0,212,255,0.08), transparent 65%);
+      filter: blur(80px);
+      pointer-events: none;
+    }
+
+    /* Login Card */
+    .login-card {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      max-width: 460px;
+      background: rgba(13, 18, 36, 0.75);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 24px;
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,212,255,0.05);
+      padding: 2.5rem;
+      animation: scaleIn 0.45s ease forwards;
+    }
+
+    .login-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 20%;
+      right: 20%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(0,212,255,0.5), transparent);
+      border-radius: 9999px;
+    }
+
+    .card-top {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .portal-icon {
+      width: 60px;
+      height: 60px;
+      background: linear-gradient(135deg, rgba(0,212,255,0.15), rgba(124,58,237,0.15));
+      border: 1px solid rgba(0,212,255,0.25);
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      margin: 0 auto 1.25rem;
+      box-shadow: 0 0 30px rgba(0,212,255,0.15);
+    }
+
+    .card-top h2 {
+      font-size: 1.625rem;
+      font-weight: 800;
+      color: #f1f5f9;
+      margin-bottom: 0.4rem;
+    }
+
+    .card-top p {
+      font-size: 0.8rem;
+      color: #64748b;
+    }
+
+    /* Form */
+    .login-form {
+      display: flex;
+      flex-direction: column;
+      gap: 1.125rem;
+    }
+
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+    }
+
+    .field-label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #94a3b8;
+      letter-spacing: 0.02em;
+    }
+
+    .field-wrap {
+      position: relative;
+    }
+
+    .field-icon {
+      position: absolute;
+      left: 0.875rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #475569;
+      font-size: 16px;
+      pointer-events: none;
+    }
+
+    .field-input {
+      width: 100%;
+      padding: 0.75rem 0.875rem 0.75rem 2.625rem;
+      background: rgba(17, 24, 39, 0.8);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      color: #f1f5f9;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.875rem;
+      transition: all 0.2s ease;
+      outline: none;
+    }
+
+    .field-input:focus {
+      border-color: #00d4ff;
+      box-shadow: 0 0 0 3px rgba(0,212,255,0.1);
+      background: rgba(13,18,36,0.9);
+    }
+
+    .field-input::placeholder { color: #374151; }
+
+    .field-input.error {
+      border-color: rgba(239,68,68,0.6);
+      box-shadow: 0 0 0 3px rgba(239,68,68,0.1);
+    }
+
+    .toggle-pw {
+      position: absolute;
+      right: 0.875rem;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #475569;
+      font-size: 15px;
+      padding: 0;
+      transition: color 0.15s ease;
+    }
+
+    .toggle-pw:hover { color: #00d4ff; }
+
+    /* Remember + Forgot */
+    .form-extras {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .remember-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      cursor: pointer;
+    }
+
+    .remember-wrap input[type="checkbox"] {
+      width: 15px;
+      height: 15px;
+      accent-color: #00d4ff;
+      cursor: pointer;
+    }
+
+    .remember-label {
+      font-size: 0.8rem;
+      color: #64748b;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .forgot-link {
+      font-size: 0.8rem;
+      color: #00d4ff;
+      text-decoration: none;
+      transition: color 0.15s ease;
+    }
+
+    .forgot-link:hover { color: #f1f5f9; }
+
+    /* Sign-in Button */
+    .btn-signin {
+      width: 100%;
+      padding: 0.875rem;
+      background: linear-gradient(135deg, #00d4ff, #0099cc);
+      border: none;
+      border-radius: 10px;
+      color: #020715;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      box-shadow: 0 4px 20px rgba(0,212,255,0.3);
+      position: relative;
+      overflow: hidden;
+      margin-top: 0.25rem;
+    }
+
+    .btn-signin::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: white;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+
+    .btn-signin:hover {
+      box-shadow: 0 6px 30px rgba(0,212,255,0.5);
+      transform: translateY(-1px);
+    }
+
+    .btn-signin:hover::before { opacity: 0.06; }
+
+    .btn-signin:active { transform: translateY(0); }
+
+    .btn-spinner {
+      display: none;
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(2,7,21,0.3);
+      border-top-color: #020715;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    /* Divider */
+    .or-divider {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      color: #374151;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .or-divider::before,
+    .or-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: rgba(255,255,255,0.07);
+    }
+
+    /* GitHub SSO Button */
+    .btn-github {
+      width: 100%;
+      padding: 0.75rem;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 10px;
+      color: #94a3b8;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.625rem;
+      transition: all 0.2s ease;
+    }
+
+    .btn-github:hover {
+      background: rgba(255,255,255,0.08);
+      border-color: rgba(255,255,255,0.18);
+      color: #f1f5f9;
+      transform: translateY(-1px);
+    }
+
+    .github-icon {
+      width: 18px;
+      height: 18px;
+    }
+
+    /* Back link */
+    .back-link-wrap {
+      text-align: center;
+      margin-top: 1.25rem;
+    }
+
+    .back-link-wrap a {
+      font-size: 0.8rem;
+      color: #475569;
+      text-decoration: none;
+      transition: color 0.15s ease;
+    }
+
+    .back-link-wrap a:hover { color: #00d4ff; }
+
+    .back-link-wrap a span { color: #00d4ff; }
+
+    /* Demo credentials terminal */
+    .demo-creds {
+      background: #010409;
+      border: 1px solid rgba(0,212,255,0.2);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-top: 1.25rem;
+    }
+
+    .demo-header {
+      background: #0d1224;
+      padding: 0.5rem 0.875rem;
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      border-bottom: 1px solid rgba(0,212,255,0.1);
+    }
+
+    .demo-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .demo-title {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem;
+      color: #475569;
+      margin-left: 0.375rem;
+    }
+
+    .demo-body {
+      padding: 0.75rem 0.875rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      line-height: 1.8;
+    }
+
+    .demo-line {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .demo-prompt { color: #00d4ff; }
+    .demo-key    { color: #94a3b8; }
+    .demo-val    { color: #10b981; }
+
+    /* ── LOADING OVERLAY ─────────────────────────────────────── */
+    .loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(2,7,21,0.92);
+      backdrop-filter: blur(10px);
+      z-index: 9999;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.5rem;
+    }
+
+    .loading-overlay.show {
+      display: flex;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .loading-ring {
+      position: relative;
+      width: 72px;
+      height: 72px;
+    }
+
+    .loading-ring-inner {
+      position: absolute;
+      inset: 0;
+      border: 3px solid transparent;
+      border-top-color: #00d4ff;
+      border-right-color: rgba(0,212,255,0.3);
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+
+    .loading-ring-outer {
+      position: absolute;
+      inset: -8px;
+      border: 2px solid transparent;
+      border-bottom-color: rgba(124,58,237,0.5);
+      border-radius: 50%;
+      animation: spinReverse 1.4s linear infinite;
+    }
+
+    .loading-icon-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+    }
+
+    .loading-text {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #94a3b8;
+    }
+
+    .loading-sub {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: #00d4ff;
+    }
+
+    /* ── TOAST ───────────────────────────────────────────────── */
+    .toast-stack {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      z-index: 9000;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .toast-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.875rem 1.125rem;
+      border-radius: 12px;
+      min-width: 280px;
+      max-width: 380px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      animation: slideInRight 0.3s ease;
+      cursor: pointer;
+    }
+
+    .toast-item.error {
+      background: rgba(239,68,68,0.12);
+      border: 1px solid rgba(239,68,68,0.35);
+      color: #f87171;
+    }
+
+    .toast-item.success {
+      background: rgba(16,185,129,0.12);
+      border: 1px solid rgba(16,185,129,0.35);
+      color: #34d399;
+    }
+
+    .toast-item.info {
+      background: rgba(0,212,255,0.1);
+      border: 1px solid rgba(0,212,255,0.3);
+      color: #00d4ff;
+    }
+
+    /* ── RESPONSIVE ──────────────────────────────────────────── */
+    @media (max-width: 900px) {
+      body { flex-direction: column; overflow: auto; }
+      .left-panel { width: 100%; min-height: auto; padding: 2rem; }
+      .feature-list { flex-direction: row; flex-wrap: wrap; }
+      .feature-item { flex: 1; min-width: 200px; }
+      .right-panel { padding: 2rem 1.25rem; }
+    }
+
+    @media (max-width: 480px) {
+      .login-card { padding: 1.75rem 1.25rem; }
+      .panel-tagline h1 { font-size: 1.5rem; }
+    }
+
+    @keyframes slideInRight {
+      from { opacity: 0; transform: translateX(50px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ════════════════ LEFT PANEL ════════════════ -->
+  <aside class="left-panel">
+    <div class="panel-orb-1"></div>
+    <div class="panel-orb-2"></div>
+    <div class="panel-orb-3"></div>
+
+    <div class="panel-content">
+      <!-- Logo -->
+      <div class="panel-logo">
+        <div class="logo-icon-wrap">🖥️</div>
+        <div class="logo-text-wrap">
+          <div class="logo-main">Exam<span>Cloud</span></div>
+          <div class="logo-sub">Temporary Exam Server Generator</div>
+        </div>
+      </div>
+
+      <!-- Tagline -->
+      <div class="panel-tagline">
+        <h1>Exam Infrastructure<br /><span class="gradient-word">Control Center</span></h1>
+        <p>Manage exam sessions, spin up Docker containers, and monitor student environments in real-time.</p>
+      </div>
+
+      <!-- Feature list -->
+      <ul class="feature-list">
+        <li class="feature-item">
+          <div class="feature-check">✓</div>
+          <div class="feature-text">
+            <div class="feature-title">Container Orchestration</div>
+            <div class="feature-desc">Spin up isolated Docker environments per student instantly</div>
+          </div>
+        </li>
+        <li class="feature-item">
+          <div class="feature-check">✓</div>
+          <div class="feature-text">
+            <div class="feature-title">Real-time Monitoring</div>
+            <div class="feature-desc">Track CPU, RAM, and session health across all containers</div>
+          </div>
+        </li>
+        <li class="feature-item">
+          <div class="feature-check">✓</div>
+          <div class="feature-text">
+            <div class="feature-title">Exam Lifecycle Control</div>
+            <div class="feature-desc">Create, pause, extend, and terminate exams with one click</div>
+          </div>
+        </li>
+        <li class="feature-item">
+          <div class="feature-check">✓</div>
+          <div class="feature-text">
+            <div class="feature-title">Role-Based Access</div>
+            <div class="feature-desc">Granular permissions for admins, instructors, and TAs</div>
+          </div>
+        </li>
+      </ul>
+
+      <!-- Version badge -->
+      <div class="version-badge">
+        <div class="version-dot"></div>
+        v2.4.1 — Production Build
+      </div>
+    </div>
+  </aside>
+
+  <!-- ════════════════ RIGHT PANEL ════════════════ -->
+  <main class="right-panel">
+    <div class="right-bg-orb-1"></div>
+    <div class="right-bg-orb-2"></div>
+
+    <div class="login-card">
+      <!-- Card top -->
+      <div class="card-top">
+        <div class="portal-icon">🛡️</div>
+        <h2>Admin Portal</h2>
+        <p>Sign in to manage exams and containers</p>
+      </div>
+
+      <!-- Login form -->
+      <form class="login-form" id="loginForm" novalidate>
+        <!-- Email -->
+        <div class="field-group">
+          <label class="field-label" for="admin-email">Email Address</label>
+          <div class="field-wrap">
+            <span class="field-icon">✉</span>
+            <input
+              class="field-input"
+              type="email"
+              id="admin-email"
+              placeholder="admin@examcloud.io"
+              autocomplete="email"
+            />
+          </div>
+        </div>
+
+        <!-- Password -->
+        <div class="field-group">
+          <label class="field-label" for="admin-password">Password</label>
+          <div class="field-wrap">
+            <span class="field-icon">🔒</span>
+            <input
+              class="field-input"
+              type="password"
+              id="admin-password"
+              placeholder="Enter your password"
+              autocomplete="current-password"
+              style="padding-right: 2.75rem;"
+            />
+            <button type="button" class="toggle-pw" id="togglePw" title="Toggle password visibility">👁</button>
+          </div>
+        </div>
+
+        <!-- Remember + Forgot -->
+        <div class="form-extras">
+          <label class="remember-wrap">
+            <input type="checkbox" id="rememberMe" />
+            <span class="remember-label">Remember me</span>
+          </label>
+          <a href="#" class="forgot-link">Forgot password?</a>
+        </div>
+
+        <!-- Sign in button -->
+        <button type="submit" class="btn-signin" id="signInBtn">
+          <div class="btn-spinner" id="btnSpinner"></div>
+          <span id="btnText">Sign In</span>
+          <span id="btnArrow">→</span>
+        </button>
+
+        <!-- Divider -->
+        <div class="or-divider">or continue with</div>
+
+        <!-- GitHub SSO -->
+        <button type="button" class="btn-github" id="githubBtn">
+          <svg class="github-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/>
+          </svg>
+          Continue with GitHub
+        </button>
+
+        <!-- Demo credentials -->
+        <div class="demo-creds">
+          <div class="demo-header">
+            <div class="demo-dot" style="background:#ef4444;"></div>
+            <div class="demo-dot" style="background:#f59e0b;"></div>
+            <div class="demo-dot" style="background:#22c55e;"></div>
+            <span class="demo-title">demo-credentials.sh</span>
+          </div>
+          <div class="demo-body">
+            <div class="demo-line">
+              <span class="demo-prompt">$</span>
+              <span class="demo-key">email&nbsp;&nbsp;&nbsp;</span>
+              <span class="demo-val">admin@examcloud.io</span>
+            </div>
+            <div class="demo-line">
+              <span class="demo-prompt">$</span>
+              <span class="demo-key">password</span>
+              <span class="demo-val">admin123</span>
+            </div>
+          </div>
+        </div>
+      </form>
+
+      <!-- Back link -->
+      <div class="back-link-wrap">
+        <a href="index.html">← Back to <span>ExamCloud Home</span></a>
+      </div>
+    </div>
+  </main>
+
+  <!-- ════════════════ LOADING OVERLAY ════════════════ -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-ring">
+      <div class="loading-ring-inner"></div>
+      <div class="loading-ring-outer"></div>
+      <div class="loading-icon-center">🛡️</div>
+    </div>
+    <div class="loading-text">Authenticating Admin</div>
+    <div class="loading-sub">Redirecting to dashboard...</div>
+  </div>
+
+  <!-- ════════════════ TOAST CONTAINER ════════════════ -->
+  <div class="toast-stack" id="toastStack"></div>
+
+  <script>
+    // ─── Toggle password visibility ────────────────────────────
+    const pwField  = document.getElementById('admin-password');
+    const togglePw = document.getElementById('togglePw');
+    togglePw.addEventListener('click', () => {
+      const isHidden = pwField.type === 'password';
+      pwField.type = isHidden ? 'text' : 'password';
+      togglePw.textContent = isHidden ? '🙈' : '👁';
+    });
+
+    // ─── Toast helper ──────────────────────────────────────────
+    function showToast(message, type = 'error') {
+      const stack = document.getElementById('toastStack');
+      const icons = { error: '⚠️', success: '✅', info: 'ℹ️' };
+      const toast = document.createElement('div');
+      toast.className = `toast-item ${type}`;
+      toast.innerHTML = `<span>${icons[type]}</span><span>${message}</span>`;
+      toast.addEventListener('click', () => toast.remove());
+      stack.appendChild(toast);
+      setTimeout(() => {
+        toast.style.transition = 'all 0.35s ease';
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(60px)';
+        setTimeout(() => toast.remove(), 350);
+      }, 3500);
+    }
+
+    // ─── Form validation & submit ──────────────────────────────
+    const form       = document.getElementById('loginForm');
+    const emailField = document.getElementById('admin-email');
+    const signInBtn  = document.getElementById('signInBtn');
+    const btnSpinner = document.getElementById('btnSpinner');
+    const btnText    = document.getElementById('btnText');
+    const btnArrow   = document.getElementById('btnArrow');
+    const overlay    = document.getElementById('loadingOverlay');
+
+    function setLoading(state) {
+      btnSpinner.style.display = state ? 'block' : 'none';
+      btnArrow.style.display   = state ? 'none'  : 'inline';
+      btnText.textContent      = state ? 'Authenticating...' : 'Sign In';
+      signInBtn.disabled       = state;
+    }
+
+    function markError(field) {
+      field.classList.add('error');
+      field.addEventListener('input', () => field.classList.remove('error'), { once: true });
+    }
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+
+      const email    = emailField.value.trim();
+      const password = pwField.value;
+      let hasError   = false;
+
+      if (!email) {
+        markError(emailField);
+        showToast('Please enter your email address.', 'error');
+        hasError = true;
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        markError(emailField);
+        showToast('Please enter a valid email address.', 'error');
+        hasError = true;
+      }
+
+      if (!password) {
+        markError(pwField);
+        if (!hasError) showToast('Please enter your password.', 'error');
+        hasError = true;
+      }
+
+      if (hasError) return;
+
+      // Simulate auth check (demo credentials)
+      setLoading(true);
+
+      setTimeout(() => {
+        // Accept demo creds or any non-empty creds for demo
+        const isValid = (email === 'admin@examcloud.io' && password === 'admin123') || (email && password);
+
+        if (isValid) {
+          showToast('Authentication successful! Redirecting...', 'success');
+          setTimeout(() => {
+            overlay.classList.add('show');
+            setTimeout(() => {
+              window.location.href = 'admin-dashboard.html';
+            }, 1200);
+          }, 300);
+        } else {
+          setLoading(false);
+          showToast('Invalid credentials. Please try again.', 'error');
+          markError(emailField);
+          markError(pwField);
+        }
+      }, 900);
+    });
+
+    // ─── GitHub SSO (demo) ─────────────────────────────────────
+    document.getElementById('githubBtn').addEventListener('click', () => {
+      showToast('GitHub SSO is configured for production deployment.', 'info');
+    });
+
+    // ─── Demo autofill on demo creds click ────────────────────
+    document.querySelector('.demo-creds').addEventListener('click', () => {
+      emailField.value = 'admin@examcloud.io';
+      pwField.value    = 'admin123';
+      emailField.classList.remove('error');
+      pwField.classList.remove('error');
+      showToast('Demo credentials filled in!', 'info');
+    });
+
+    // ─── Subtle field focus glow ───────────────────────────────
+    document.querySelectorAll('.field-input').forEach(input => {
+      input.addEventListener('focus', () => {
+        input.parentElement.querySelector('.field-icon').style.color = '#00d4ff';
+      });
+      input.addEventListener('blur', () => {
+        input.parentElement.querySelector('.field-icon').style.color = '#475569';
+      });
+    });
+  </script>
+</body>
+</html>

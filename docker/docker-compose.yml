@@ -1,0 +1,451 @@
+# =============================================================================
+# docker-compose.yml — Temporary Exam Server Generator
+# =============================================================================
+# Main infrastructure stack: nginx, backend API, Jenkins CI, MySQL, monitoring
+# Student containers are managed separately via docker-compose.students.yml
+# =============================================================================
+# Usage:
+#   docker-compose up -d                  → Start all infrastructure services
+#   docker-compose down -v                → Stop and remove volumes
+#   docker-compose logs -f backend-api    → Tail specific service logs
+# =============================================================================
+
+version: '3.8'
+
+# =============================================================================
+# NETWORKS
+# =============================================================================
+networks:
+  exam-network:
+    driver: bridge
+    name: exam-network
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
+    labels:
+      com.exam.network: "main"
+      com.exam.system: "Temporary Exam Server Generator"
+
+  monitoring-network:
+    driver: bridge
+    name: monitoring-network
+    internal: false
+
+# =============================================================================
+# VOLUMES
+# =============================================================================
+volumes:
+  submissions:
+    name: exam-submissions
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/submissions
+    labels:
+      com.exam.volume: "submissions"
+
+  logs:
+    name: exam-logs
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/logs
+    labels:
+      com.exam.volume: "logs"
+
+  mysql-data:
+    name: exam-mysql-data
+    driver: local
+
+  jenkins-data:
+    name: exam-jenkins-data
+    driver: local
+
+  nginx-cache:
+    name: exam-nginx-cache
+    driver: local
+
+  prometheus-data:
+    name: exam-prometheus-data
+    driver: local
+
+  grafana-data:
+    name: exam-grafana-data
+    driver: local
+
+# =============================================================================
+# SERVICES
+# =============================================================================
+services:
+
+  # ---------------------------------------------------------------------------
+  # NGINX — Reverse Proxy / Load Balancer
+  # Routes:
+  #   /           → Admin dashboard (port 3000 → backend-api)
+  #   /student/*  → Individual student containers (8001–8200)
+  #   /jenkins    → Jenkins UI (port 8080)
+  #   /metrics    → Prometheus (port 9090) [internal only]
+  # ---------------------------------------------------------------------------
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: exam-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro          # SSL certs (Let's Encrypt / self-signed)
+      - nginx-cache:/var/cache/nginx
+      - logs:/var/log/nginx
+    networks:
+      - exam-network
+    depends_on:
+      backend-api:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    labels:
+      com.exam.service: "nginx"
+      com.exam.role: "reverse-proxy"
+    environment:
+      - NGINX_ENTRYPOINT_QUIET_LOGS=1
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # ---------------------------------------------------------------------------
+  # BACKEND API — Node.js / Python FastAPI Server
+  # Handles:
+  #   - Admin dashboard APIs
+  #   - Exam creation / scheduling
+  #   - Student container lifecycle management
+  #   - Submission collection and grading triggers
+  #   - WebSocket for real-time student status
+  # ---------------------------------------------------------------------------
+  backend-api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        - BUILD_ENV=production
+    image: exam-backend-api:${EXAM_SYSTEM_VERSION:-latest}
+    container_name: exam-backend-api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"          # REST API
+      - "3001:3001"          # WebSocket server
+    environment:
+      # Application config
+      - NODE_ENV=production
+      - PORT=3000
+      - WS_PORT=3001
+      # Database
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_NAME=${MYSQL_DATABASE:-examdb}
+      - DB_USER=${MYSQL_USER:-examuser}
+      - DB_PASSWORD=${MYSQL_PASSWORD:-exampass123}
+      # Security
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      - SESSION_SECRET=${SESSION_SECRET:-change-me-in-production}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
+      # Docker socket (for container management)
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      # Exam system config
+      - EXAM_NETWORK=exam-network
+      - STUDENT_IMAGE=exam-student-env:latest
+      - BASE_STUDENT_PORT=8001
+      - MAX_STUDENTS=200
+      - SUBMISSIONS_DIR=/data/submissions
+      - LOGS_DIR=/data/logs
+      # Jenkins integration
+      - JENKINS_URL=http://jenkins:8080
+      - JENKINS_USER=${JENKINS_USER:-admin}
+      - JENKINS_TOKEN=${JENKINS_API_TOKEN}
+    volumes:
+      - submissions:/data/submissions
+      - logs:/data/logs
+      - /var/run/docker.sock:/var/run/docker.sock:ro  # Read-only Docker socket
+      - ./backend/config:/app/config:ro
+    networks:
+      - exam-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    labels:
+      com.exam.service: "backend-api"
+      com.exam.role: "api-server"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "10"
+
+  # ---------------------------------------------------------------------------
+  # JENKINS — CI/CD Automation
+  # Handles automated:
+  #   - Building student environment Docker images
+  #   - Deploying student containers at exam start
+  #   - Running grading pipelines
+  #   - Cleanup after exam completion
+  # ---------------------------------------------------------------------------
+  jenkins:
+    image: jenkins/jenkins:2.440-lts-jdk21
+    container_name: exam-jenkins
+    restart: unless-stopped
+    privileged: true                    # Required for Docker-in-Docker
+    user: root
+    ports:
+      - "8090:8080"                    # Jenkins UI (mapped to 8090 to avoid conflict)
+      - "50000:50000"                  # Jenkins agent port
+    environment:
+      - JENKINS_OPTS=--prefix=/jenkins
+      - JAVA_OPTS=-Xmx512m -Xms256m -Djenkins.install.runSetupWizard=false
+      - JENKINS_URL=http://jenkins:8080
+      - EXAM_SYSTEM_URL=http://backend-api:3000
+      - DOCKER_REGISTRY=${DOCKER_REGISTRY:-localhost:5000}
+    volumes:
+      - jenkins-data:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock  # Docker socket for builds
+      - ./jenkins/Jenkinsfile:/var/jenkins_home/jobs/exam-pipeline/config.xml:ro
+      - ./jenkins/init.groovy.d:/var/jenkins_home/init.groovy.d:ro
+    networks:
+      - exam-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/jenkins/login"]
+      interval: 60s
+      timeout: 15s
+      retries: 5
+      start_period: 60s
+    labels:
+      com.exam.service: "jenkins"
+      com.exam.role: "ci-cd"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ---------------------------------------------------------------------------
+  # MYSQL — Primary Database
+  # Stores:
+  #   - Exam configurations (exam_sessions table)
+  #   - Student registrations (students table)
+  #   - Submission metadata (submissions table)
+  #   - Container mappings (containers table)
+  #   - Audit logs (audit_logs table)
+  # ---------------------------------------------------------------------------
+  mysql:
+    image: mysql:8.2
+    container_name: exam-mysql
+    restart: unless-stopped
+    ports:
+      - "3306:3306"                    # Expose for local development; close in prod
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-rootpass123}
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-examdb}
+      - MYSQL_USER=${MYSQL_USER:-examuser}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-exampass123}
+      # Performance tuning
+      - MYSQL_INNODB_BUFFER_POOL_SIZE=256M
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --max-connections=200
+      --innodb-buffer-pool-size=256M
+      --slow-query-log=1
+      --slow-query-log-file=/var/log/mysql/slow.log
+      --long-query-time=2
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./mysql/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./mysql/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+      - logs:/var/log/mysql
+    networks:
+      - exam-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpass123}"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    labels:
+      com.exam.service: "mysql"
+      com.exam.role: "database"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  # ---------------------------------------------------------------------------
+  # MONITORING — Prometheus + Grafana Stack
+  # Monitors:
+  #   - Container resource usage (CPU, memory per student)
+  #   - API response times and error rates
+  #   - Exam system health metrics
+  #   - Jenkins build metrics
+  # ---------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: exam-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=7d'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - exam-network
+      - monitoring-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      com.exam.service: "prometheus"
+      com.exam.role: "monitoring"
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: exam-grafana
+    restart: unless-stopped
+    ports:
+      - "3030:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-grafana123}
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SERVER_ROOT_URL=http://localhost:3030
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/dashboards/exam-overview.json
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/dashboards:ro
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - exam-network
+      - monitoring-network
+    depends_on:
+      - prometheus
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      com.exam.service: "grafana"
+      com.exam.role: "monitoring-ui"
+
+  # ---------------------------------------------------------------------------
+  # CADVISOR — Container resource metrics exporter for Prometheus
+  # ---------------------------------------------------------------------------
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: exam-cadvisor
+    restart: unless-stopped
+    privileged: true
+    ports:
+      - "8085:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    devices:
+      - /dev/kmsg
+    networks:
+      - monitoring-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.3'
+          memory: 128M
+    labels:
+      com.exam.service: "cadvisor"
+      com.exam.role: "metrics"
+
+# =============================================================================
+# NOTE: Student containers are defined separately in docker-compose.students.yml
+# They are dynamically generated by scripts/create-containers.sh
+# To join them to the same network, they inherit the external network:
+#
+#   networks:
+#     exam-network:
+#       external: true
+#       name: exam-network
+# =============================================================================
