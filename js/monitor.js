@@ -313,7 +313,52 @@ function filterContainers() {
 
 /* ── COUNTDOWN ────────────────────────────────────────────── */
 
+async function syncCountdownWithDb() {
+  try {
+    const resp = await fetch('/api/exams');
+    const data = await resp.json();
+    if (data.success && data.data) {
+      const activeExam = data.data.find(e => e.status === 'active');
+      if (activeExam) {
+        const isoStr = activeExam.created_at.includes('T') ? activeExam.created_at : activeExam.created_at.replace(' ', 'T') + 'Z';
+        const createdTime = new Date(isoStr).getTime();
+        const durationMs = activeExam.duration_minutes * 60 * 1000;
+        const endTime = createdTime + durationMs;
+        const remainingMs = endTime - Date.now();
+        
+        if (remainingMs > 0) {
+          countdownSeconds = Math.floor(remainingMs / 1000);
+          const el = document.getElementById('countdown');
+          if (el) {
+            el.textContent = fmtCountdown(countdownSeconds);
+            el.style.color = '';
+            if (countdownSeconds <= 300) {
+              el.style.color = 'var(--red)';
+            } else if (countdownSeconds <= 600) {
+              el.style.color = 'var(--yellow)';
+            }
+          }
+          return;
+        }
+      }
+    }
+    countdownSeconds = 0;
+    const el = document.getElementById('countdown');
+    if (el) {
+      el.textContent = '00:00:00';
+      el.style.color = 'var(--text-muted)';
+    }
+    if (countdownInterval) {
+      clearInterval(countdownInterval);
+      countdownInterval = null;
+    }
+  } catch (err) {
+    console.error('Failed to sync countdown with database:', err);
+  }
+}
+
 function startCountdown() {
+  if (countdownInterval) clearInterval(countdownInterval);
   countdownInterval = setInterval(() => {
     if (countdownSeconds > 0) {
       countdownSeconds--;
@@ -326,7 +371,9 @@ function startCountdown() {
       }
     } else {
       document.getElementById('countdown').textContent = '00:00:00';
+      document.getElementById('countdown').style.color = 'var(--text-muted)';
       clearInterval(countdownInterval);
+      countdownInterval = null;
       addLog({ type: 'kill', msg: 'Exam time ended — all containers shutting down' });
     }
   }, 1000);
@@ -730,7 +777,12 @@ async function init() {
   await generateContainers();
   renderGrid();
   updateSummary();
-  startCountdown();
+  
+  await syncCountdownWithDb();
+  if (countdownSeconds > 0) {
+    startCountdown();
+  }
+  
   seedInitialLogs();
   startAutoRefresh();
   startLogStream();

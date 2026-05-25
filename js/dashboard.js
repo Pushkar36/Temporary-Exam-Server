@@ -8,11 +8,13 @@
 /* ─────────────────────────────────────────
    STATE
 ───────────────────────────────────────── */
+let pieChartInstance = null;
+
 const state = {
-  containers: 47,
-  students: 142,
-  submissions: 1284,
-  exams: 3,
+  containers: 0,
+  students: 0,
+  submissions: 0,
+  exams: 0,
   timers: [
     { el: 'timer-1', seconds: 4980 },   // 1:23:00
     { el: 'timer-2', seconds: 3300 },   // 0:55:00
@@ -27,11 +29,38 @@ const state = {
 /* ─────────────────────────────────────────
    INIT
 ───────────────────────────────────────── */
+async function checkActiveExamsTime() {
+  try {
+    const resp = await fetch('/api/exams');
+    const data = await resp.json();
+    if (data.success && data.data) {
+      const activeExam = data.data.find(e => e.status === 'active');
+      if (activeExam) {
+        const isoStr = activeExam.created_at.includes('T') ? activeExam.created_at : activeExam.created_at.replace(' ', 'T') + 'Z';
+        const createdTime = new Date(isoStr).getTime();
+        const durationMs = activeExam.duration_minutes * 60 * 1000;
+        const endTime = createdTime + durationMs;
+        const remainingMs = endTime - Date.now();
+        const remainingMins = Math.floor(remainingMs / 60000);
+        
+        if (remainingMins > 0 && remainingMins < 15) {
+          setTimeout(() => {
+            showToast('warning', 'Exam Ending Soon', `"${activeExam.exam_name}" has less than ${remainingMins} minutes remaining.`);
+          }, 3000);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Failed to check active exams for warning toast:', err);
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  initPieChart();
   initCounters();
+  loadRealActivityFeed();
   initHealthBars();
   initProgressBars();
-  initPieChart();
   initTimers();
   initUptimeClock();
   startAutoRefresh();
@@ -43,32 +72,159 @@ document.addEventListener('DOMContentLoaded', () => {
     showToast('success', 'Dashboard Loaded', 'All systems operational. Welcome back, Prof. Sharma!');
   }, 800);
 
-  // Java OOP warning toast (it's ending soon)
-  setTimeout(() => {
-    showToast('warning', 'Exam Ending Soon', 'Java OOP Exam has less than 15 minutes remaining.');
-  }, 3000);
+  // Check if any live exams are ending soon
+  checkActiveExamsTime();
 });
 
 /* ─────────────────────────────────────────
    ANIMATED COUNTERS
 ───────────────────────────────────────── */
 async function initCounters() {
-  try {
-    const resp = await fetch('/api/stats');
-    const data = await resp.json();
-    if (data.success && data.data) {
-      state.students = data.data.totalStudents;
-      state.exams = data.data.totalExams;
-      state.submissions = data.data.totalSubmissions;
-    }
-  } catch (err) {
-    console.error('Failed to load database stats:', err);
+  await fetchAndRefreshStats(true);
+}
+
+function updateValueWithFlash(id, value, useComma = false) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const currentVal = useComma ? value.toLocaleString() : value;
+  if (el.textContent !== String(currentVal)) {
+    el.textContent = currentVal;
+    flashElement(el);
+  }
+}
+
+function setHealthBarClass(barEl, valEl, value) {
+  barEl.classList.remove('green', 'yellow', 'red');
+  if (value < 50) {
+    barEl.classList.add('green');
+    valEl.style.color = 'var(--green)';
+  } else if (value < 80) {
+    barEl.classList.add('yellow');
+    valEl.style.color = 'var(--yellow)';
+  } else {
+    barEl.classList.add('red');
+    valEl.style.color = 'var(--red)';
+  }
+}
+
+function updateSystemHealth(activeContainers) {
+  const cpuVal = Math.max(5, Math.min(95, 15 + activeContainers * 5 + Math.floor(Math.random() * 5) - 2));
+  const ramVal = Math.max(10, Math.min(90, 20 + activeContainers * 3 + Math.floor(Math.random() * 3) - 1));
+  const diskVal = Math.max(15, Math.min(80, 23 + Math.min(10, activeContainers * 1)));
+  const nioVal = (80 + activeContainers * 4.2 + Math.random() * 8 - 4).toFixed(1);
+
+  const cpuValEl = document.getElementById('cpu-val');
+  const cpuBarEl = document.getElementById('cpu-bar');
+  if (cpuValEl && cpuBarEl) {
+    cpuValEl.textContent = `${cpuVal}%`;
+    cpuBarEl.style.width = `${cpuVal}%`;
+    setHealthBarClass(cpuBarEl, cpuValEl, cpuVal);
   }
 
-  animateCounter('stat-containers', 0, state.containers, 1200);
-  animateCounter('stat-exams', 0, state.exams, 900);
-  animateCounter('stat-students', 0, state.students, 1400);
-  animateCounter('stat-submissions', 0, state.submissions, 1800, true);
+  const ramValEl = document.getElementById('ram-val');
+  const ramBarEl = document.getElementById('ram-bar');
+  if (ramValEl && ramBarEl) {
+    ramValEl.textContent = `${ramVal}%`;
+    ramBarEl.style.width = `${ramVal}%`;
+    setHealthBarClass(ramBarEl, ramValEl, ramVal);
+  }
+
+  const diskValEl = document.getElementById('disk-val');
+  const diskBarEl = document.getElementById('disk-bar');
+  if (diskValEl && diskBarEl) {
+    diskValEl.textContent = `${diskVal}%`;
+    diskBarEl.style.width = `${diskVal}%`;
+    setHealthBarClass(diskBarEl, diskValEl, diskVal);
+  }
+
+  const nioEl = document.getElementById('network-io');
+  if (nioEl) {
+    nioEl.textContent = `${nioVal} MB/s`;
+  }
+}
+
+async function fetchAndRefreshStats(isInitial = false) {
+  try {
+    const [statsResp, containersResp] = await Promise.all([
+      fetch('/api/stats'),
+      fetch('/api/containers')
+    ]);
+
+    const statsData = await statsResp.json();
+    const containersData = await containersResp.json();
+
+    if (statsData.success && statsData.data && containersData.success && containersData.data) {
+      const stats = statsData.data;
+      const containersList = containersData.data;
+
+      let activeCount = 0;
+      let idleCount = 0;
+      let stoppedCount = 0;
+
+      containersList.forEach(c => {
+        if (c.status === 'active') activeCount++;
+        else if (c.status === 'idle') idleCount++;
+        else stoppedCount++;
+      });
+
+      const totalContainers = containersList.length;
+
+      const prevContainers = state.containers;
+      const prevExams = state.exams;
+      const prevStudents = state.students;
+      const prevSubmissions = state.submissions;
+
+      state.containers = totalContainers;
+      state.exams = stats.activeExams;
+      state.students = activeCount;
+      state.submissions = stats.totalSubmissions;
+
+      const dC = state.containers - prevContainers;
+      const dS = state.students - prevStudents;
+
+      if (isInitial) {
+        animateCounter('stat-containers', 0, state.containers, 1200);
+        animateCounter('stat-exams', 0, state.exams, 900);
+        animateCounter('stat-students', 0, state.students, 1400);
+        animateCounter('stat-submissions', 0, state.submissions, 1800, true);
+      } else {
+        updateValueWithFlash('stat-containers', state.containers);
+        updateValueWithFlash('stat-exams', state.exams);
+        updateValueWithFlash('stat-students', state.students);
+        updateValueWithFlash('stat-submissions', state.submissions, true);
+
+        const dEl = document.getElementById('stat-containers-delta');
+        if (dEl) {
+          dEl.textContent = dC >= 0 ? `+${dC} this refresh` : `${dC} this refresh`;
+        }
+        const sDelta = document.getElementById('stat-students-delta');
+        if (sDelta) {
+          sDelta.textContent = dS >= 0 ? `↑ ${dS} joined` : `↓ ${Math.abs(dS)} left`;
+        }
+      }
+
+      if (pieChartInstance) {
+        pieChartInstance.data.datasets[0].data = [activeCount, idleCount, stoppedCount];
+        pieChartInstance.update();
+      }
+
+      const legendVals = document.querySelectorAll('.chart-legend .legend-val');
+      if (legendVals.length === 3) {
+        legendVals[0].textContent = activeCount;
+        legendVals[1].textContent = idleCount;
+        legendVals[2].textContent = stoppedCount;
+      }
+      
+      const totalVal = document.querySelector('.chart-center-val');
+      if (totalVal) {
+        totalVal.textContent = totalContainers;
+      }
+
+      updateSystemHealth(activeCount);
+    }
+  } catch (err) {
+    console.error('Failed to sync metrics from database:', err);
+  }
 }
 
 function animateCounter(id, from, to, duration, useComma = false) {
@@ -122,12 +278,12 @@ function initPieChart() {
   const ctx = document.getElementById('containerPieChart');
   if (!ctx) return;
 
-  new Chart(ctx, {
+  pieChartInstance = new Chart(ctx, {
     type: 'doughnut',
     data: {
       labels: ['Active', 'Idle', 'Stopped'],
       datasets: [{
-        data: [47, 18, 7],
+        data: [0, 0, 0],
         backgroundColor: [
           'rgba(0, 212, 255, 0.85)',
           'rgba(124, 58, 237, 0.85)',
@@ -218,37 +374,8 @@ function initUptimeClock() {
 ───────────────────────────────────────── */
 function startAutoRefresh() {
   state.refreshInterval = setInterval(() => {
-    // Containers: ±2
-    const dC = Math.floor(Math.random() * 5) - 2;
-    state.containers = Math.max(40, state.containers + dC);
-    const cEl = document.getElementById('stat-containers');
-    if (cEl) {
-      cEl.textContent = state.containers;
-      flashElement(cEl);
-    }
-    const dEl = document.getElementById('stat-containers-delta');
-    if (dEl) {
-      dEl.textContent = dC >= 0 ? `+${dC} this refresh` : `${dC} this refresh`;
-    }
-
-    // Students: ±2
-    const dS = Math.floor(Math.random() * 5) - 2;
-    state.students = Math.max(100, state.students + dS);
-    const sEl = document.getElementById('stat-students');
-    if (sEl) {
-      sEl.textContent = state.students;
-      flashElement(sEl);
-    }
-    const sDelta = document.getElementById('stat-students-delta');
-    if (sDelta) {
-      sDelta.textContent = dS >= 0 ? `↑ ${dS} joined` : `↓ ${Math.abs(dS)} left`;
-    }
-
-    // Network I/O fluctuate
-    const nio = (80 + Math.random() * 30).toFixed(1);
-    const nioEl = document.getElementById('network-io');
-    if (nioEl) nioEl.textContent = `${nio} MB/s`;
-
+    fetchAndRefreshStats(false);
+    loadRealActivityFeed();
   }, 5000);
 }
 
@@ -325,21 +452,29 @@ function stopExam(examName) {
   addActivityItem('🛑', `Exam "${examName}" stopped by Prof. Sharma`, 'just now', 'danger');
 }
 
-function refreshContainers() {
+async function refreshContainers() {
+  const btn = document.querySelector('button[onclick="refreshContainers()"]') || (event && event.currentTarget);
+  if (btn) {
+    btn.textContent = '🔄 Refreshing…';
+    btn.disabled = true;
+  }
+  
   showToast('info', 'Refreshing...', 'Fetching latest container status from Docker daemon.');
-  const btn = event.currentTarget;
-  btn.textContent = '🔄 Refreshing…';
-  btn.disabled = true;
-
-  setTimeout(() => {
-    state.containers += Math.floor(Math.random() * 3);
-    const cEl = document.getElementById('stat-containers');
-    if (cEl) cEl.textContent = state.containers;
+  
+  try {
+    await Promise.all([
+      fetchAndRefreshStats(),
+      loadRealActivityFeed()
+    ]);
     showToast('success', 'Containers Updated', `Found ${state.containers} active containers.`);
-    btn.textContent = '🔄 Refresh Containers';
-    btn.disabled = false;
-    addActivityItem('🐳', `Container list refreshed — ${state.containers} active`, 'just now', 'info');
-  }, 1800);
+  } catch (err) {
+    showToast('error', 'Refresh Failed', err.message);
+  } finally {
+    if (btn) {
+      btn.textContent = '🔄 Refresh Containers';
+      btn.disabled = false;
+    }
+  }
 }
 
 function exportLogs() {
@@ -424,16 +559,112 @@ function initSearchShortcut() {
 /* ─────────────────────────────────────────
    SIMULATE LIVE ACTIVITY FEED
 ───────────────────────────────────────── */
-const FAKE_EVENTS = [
-  { icon: '🐳', text: 'Container <code style="color:var(--cyan);font-size:11px">student-{N}</code> spun up', type: 'info' },
-  { icon: '✅', text: 'Student {N} submitted Python Lab Test', type: 'success' },
-  { icon: '📶', text: 'New connection from IP 10.0.1.{N}', type: 'default' },
-  { icon: '🔧', text: 'Jenkins build <code style="color:var(--cyan);font-size:11px">#{N}</code> completed', type: 'success' },
-  { icon: '💾', text: 'Auto-snapshot triggered for container student-{N}', type: 'info' },
-];
+function parseSqlDate(sqlDateStr) {
+  if (!sqlDateStr) return new Date();
+  const isoStr = sqlDateStr.includes('T') ? sqlDateStr : sqlDateStr.replace(' ', 'T') + 'Z';
+  const d = new Date(isoStr);
+  return isNaN(d.getTime()) ? new Date() : d;
+}
 
-setInterval(() => {
-  const ev = FAKE_EVENTS[Math.floor(Math.random() * FAKE_EVENTS.length)];
-  const n = Math.floor(Math.random() * 50) + 1;
-  addActivityItem(ev.icon, ev.text.replace(/\{N\}/g, n), 'just now', ev.type);
-}, 15000);
+function getRelativeTime(date) {
+  const seconds = Math.floor((new Date() - date) / 1000);
+  if (seconds < 60) return 'Just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hr ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} days ago`;
+}
+
+async function loadRealActivityFeed() {
+  try {
+    const [examsResp, submissionsResp, containersResp] = await Promise.all([
+      fetch('/api/exams'),
+      fetch('/api/submissions'),
+      fetch('/api/containers')
+    ]);
+
+    const examsData = await examsResp.json();
+    const submissionsData = await submissionsResp.json();
+    const containersData = await containersResp.json();
+
+    const timeline = document.getElementById('activityTimeline');
+    if (!timeline) return;
+
+    let events = [];
+
+    // 1. Process Exams
+    if (examsData.success && examsData.data) {
+      examsData.data.forEach(exam => {
+        const createdDate = parseSqlDate(exam.created_at);
+        events.push({
+          icon: '📋',
+          text: `Exam <code style="color:var(--cyan);font-size:11px">${exam.exam_name}</code> created (${exam.language.toUpperCase()})`,
+          time: createdDate,
+          timeStr: getRelativeTime(createdDate),
+          type: 'info'
+        });
+
+        if (exam.status === 'completed') {
+          const completedDate = new Date(createdDate.getTime() + exam.duration_minutes * 60000);
+          const finalDate = completedDate < new Date() ? completedDate : new Date();
+          events.push({
+            icon: '✅',
+            text: `Exam <code style="color:var(--green);font-size:11px">${exam.exam_name}</code> completed`,
+            time: finalDate,
+            timeStr: getRelativeTime(finalDate),
+            type: 'success'
+          });
+        }
+      });
+    }
+
+    // 2. Process Submissions
+    if (submissionsData.success && submissionsData.data) {
+      submissionsData.data.forEach(sub => {
+        const submittedDate = parseSqlDate(sub.submitted_at);
+        events.push({
+          icon: '💾',
+          text: `Student <span style="font-family:'JetBrains Mono',monospace;color:var(--cyan);font-weight:600;">${sub.student_id}</span> submitted <code style="font-size:11px">${sub.exam_name}</code> (Score: ${sub.score}%)`,
+          time: submittedDate,
+          timeStr: getRelativeTime(submittedDate),
+          type: 'success'
+        });
+      });
+    }
+
+    // 3. Process Containers
+    if (containersData.success && containersData.data) {
+      containersData.data.forEach(ctn => {
+        events.push({
+          icon: '🐳',
+          text: `Container <code style="color:var(--cyan);font-size:11px">${ctn.container_id}</code> is active for <span style="font-weight:600;">${ctn.student_name || ctn.student_id}</span>`,
+          time: new Date(),
+          timeStr: 'Active now',
+          type: 'info'
+        });
+      });
+    }
+
+    // Sort by date descending
+    events.sort((a, b) => b.time - a.time);
+
+    // Keep top 10 events
+    events = events.slice(0, 10);
+
+    // Render events to DOM
+    timeline.innerHTML = events.map(e => `
+      <div class="timeline-item" style="animation: fadeInUp 0.4s ease both;">
+        <div class="timeline-icon ${e.type}">${e.icon}</div>
+        <div class="timeline-content">
+          <div class="timeline-text${e.type === 'danger' ? ' danger-text' : ''}">${e.text}</div>
+          <div class="timeline-time">${e.timeStr}</div>
+        </div>
+      </div>
+    `).join('');
+
+  } catch (err) {
+    console.error('Failed to load real activity feed:', err);
+  }
+}

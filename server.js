@@ -284,6 +284,22 @@ app.patch('/api/exams/:id/status', (req, res) => {
   }
 });
 
+// DELETE /api/exams/:id — Delete an exam
+app.delete('/api/exams/:id', (req, res) => {
+  try {
+    const examId = Number(req.params.id);
+    const existing = queryOne('SELECT id FROM exams WHERE id = ?', [examId]);
+    if (!existing) {
+      return res.status(404).json({ success: false, error: 'Exam not found' });
+    }
+    runSql('DELETE FROM exams WHERE id = ?', [examId]);
+    res.json({ success: true, message: `Exam ${examId} deleted successfully` });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+
 // ─── STUDENT LOGIN ───────────────────────────────────────────
 
 // POST /api/login/student — Validate student credentials
